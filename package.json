@@ -1,0 +1,31 @@
+{
+  "name": "robogo-backend-nodejs",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "api": "nodemon api-server.js",
+    "stream": "nodemon stream-server.js",
+    "dev": "concurrently \"npm run api\" \"npm run stream\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.8.4",
+    "child_process": "^1.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "firebase-admin": "^13.2.0",
+    "mongoose": "^8.13.2",
+    "multer": "^1.4.5-lts.2",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.14.1",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
