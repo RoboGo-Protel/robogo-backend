@@ -110,7 +110,7 @@ async function getIMULogsByDateAndSessionId(date, sessionId) {
   });
 }
 
-async function deleteIMULog(id) {
+async function deleteIMULogByID(id) {
   const ref = firestore.collection("imu_logs").doc(id);
   const doc = await ref.get();
   if (!doc.exists) return false;
@@ -124,5 +124,5 @@ module.exports = {
   getIMULogById,
   getIMULogsByDate,
   getIMULogsByDateAndSessionId,
-  deleteIMULog,
+  deleteIMULogByID,
 };

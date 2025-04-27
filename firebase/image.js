@@ -29,7 +29,7 @@ async function getImageById(id) {
   return { id: doc.id, ...doc.data() };
 }
 
-async function deleteImage(id) {
+async function deleteImageByID(id) {
   const docRef = firestore.collection("images").doc(id);
   const doc = await docRef.get();
   if (!doc.exists) return null;
@@ -70,6 +70,6 @@ module.exports = {
   saveImage,
   getAllImages,
   getImageById,
-  deleteImage,
+  deleteImageByID,
   uploadImageToStorage,
 };

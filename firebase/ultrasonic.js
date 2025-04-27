@@ -28,6 +28,90 @@ async function saveUltrasonicLog({
   return { id: ref.id, ...data };
 }
 
+async function getAllSummaries() {
+  const snapshot = await firestore
+    .collection("ultrasonic_logs")
+    .orderBy("timestamp", "asc")
+    .get();
+
+  let totalImages = 0;
+  let totalObstacles = 0;
+  let totalDistance = 0;
+  let closestDistance = null;
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (!data || data.distance == null) return;
+
+    totalImages++;
+
+    if (data.alertLevel === "Medium" || data.alertLevel === "High") {
+      totalObstacles++;
+    }
+
+    totalDistance += data.distance;
+
+    if (closestDistance === null || data.distance < closestDistance) {
+      closestDistance = data.distance;
+    }
+  });
+
+  const averageDistance = totalImages > 0 ? totalDistance / totalImages : 0;
+
+  return {
+    totalImages,
+    totalObstacles,
+    closestDistance,
+    averageDistance: parseFloat(averageDistance.toFixed(2)),
+  };
+}
+
+async function getSummariesByDate(date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("ultrasonic_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<=", endOfDay)
+    .orderBy("timestamp", "asc")
+    .get();
+
+  let totalImages = 0;
+  let totalObstacles = 0;
+  let totalDistance = 0;
+  let closestDistance = null;
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (!data || data.distance == null) return;
+
+    totalImages++;
+
+    if (data.alertLevel === "Medium" || data.alertLevel === "High") {
+      totalObstacles++;
+    }
+
+    totalDistance += data.distance;
+
+    if (closestDistance === null || data.distance < closestDistance) {
+      closestDistance = data.distance;
+    }
+  });
+
+  const averageDistance = totalImages > 0 ? totalDistance / totalImages : 0;
+
+  return {
+    totalImages,
+    totalObstacles,
+    closestDistance,
+    averageDistance: parseFloat(averageDistance.toFixed(2)),
+  };
+}
+
 async function getAllUltrasonicLogs() {
   const snapshot = await firestore
     .collection("ultrasonic_logs")
@@ -102,7 +186,7 @@ async function getUltrasonicLogsByDateAndSessionId(date, sessionId) {
   });
 }
 
-async function deleteUltrasonicLog(id) {
+async function deleteUltrasonicLogByID(id) {
   const ref = firestore.collection("ultrasonic_logs").doc(id);
   const doc = await ref.get();
   if (!doc.exists) return false;
@@ -111,11 +195,64 @@ async function deleteUltrasonicLog(id) {
   return true;
 }
 
+async function deleteUltrasonicLogByDate(date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("ultrasonic_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<=", endOfDay)
+    .get();
+
+  if (snapshot.empty) return null;
+
+  const batch = firestore.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+
+  return true;
+}
+
+async function deleteUltrasonicLogByDateAndSessionId(date, sessionId) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("ultrasonic_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<=", endOfDay)
+    .where("sessionId", "==", Number(sessionId))
+    .get();
+
+  if (snapshot.empty) return null;
+
+  const batch = firestore.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+
+  return true;
+}
+
 module.exports = {
   saveUltrasonicLog,
+  getAllSummaries,
+  getSummariesByDate,
   getAllUltrasonicLogs,
   getUltrasonicLogsByDate,
   getUltrasonicLogById,
   getUltrasonicLogsByDateAndSessionId,
-  deleteUltrasonicLog,
+  deleteUltrasonicLogByID,
+  deleteUltrasonicLogByDate,
+  deleteUltrasonicLogByDateAndSessionId,
 };

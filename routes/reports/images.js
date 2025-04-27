@@ -6,7 +6,7 @@ const {
   saveImage,
   getAllImages,
   getImageById,
-  deleteImage,
+  deleteImageByID,
   uploadImageToStorage,
 } = require("../../firebase/image");
 
@@ -62,7 +62,7 @@ router.get("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
-  const success = await deleteImage(req.params.id);
+  const success = await deleteImageByID(req.params.id);
   if (!success) return res.status(404).json({ error: "Not found" });
   res.json({ success: true });
 });

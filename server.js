@@ -16,6 +16,7 @@ const {
 const imageRoutes = require("./routes/reports/images");
 const ultrasonicRoutes = require("./routes/reports/ultrasonic");
 const imuRoutes = require("./routes/reports/imu");
+const pathRoutes = require("./routes/reports/path");
 
 const app = express();
 const PORT = 4000;
@@ -72,6 +73,7 @@ v1.get("/status", (req, res) => {
 v1.use("/reports/gallery/images", imageRoutes);
 v1.use("/reports/ultrasonic", ultrasonicRoutes);
 v1.use("/reports/imu", imuRoutes);
+v1.use("/reports/paths", pathRoutes);
 
 // ⛳ Prefix all routes under /api/v1
 app.use("/api/v1", v1);
