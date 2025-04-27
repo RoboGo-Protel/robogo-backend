@@ -8,7 +8,7 @@ const {
   getImageById,
   deleteImage,
   uploadImageToStorage,
-} = require("../../firebase/imageHelper");
+} = require("../../firebase/image");
 
 const upload = multer({ storage: multer.memoryStorage() });
 

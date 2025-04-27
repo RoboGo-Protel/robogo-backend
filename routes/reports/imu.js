@@ -7,7 +7,7 @@ const {
   getIMULogsByDateAndSessionId,
   getIMULogById,
   deleteIMULog,
-} = require("../../firebase/imuHelper");
+} = require("../../firebase/imu");
 
 router.post("/", async (req, res) => {
   try {

@@ -7,7 +7,7 @@ const {
   getUltrasonicLogsByDateAndSessionId,
   getUltrasonicLogById,
   deleteUltrasonicLog,
-} = require("../../firebase/ultrasonicHelper");
+} = require("../../firebase/ultrasonic");
 
 router.post("/", async (req, res) => {
   try {
