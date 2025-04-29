@@ -25,7 +25,16 @@ async function getAllImages() {
     .orderBy("createdAt", "desc")
     .get();
 
-  const images = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const images = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+    };
+  });
+
   return images;
 }
 
@@ -57,8 +66,8 @@ async function getAllImagesByDate(date) {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }

@@ -70,7 +70,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     res.status(500).json({
       status: "error",
       code: 500,
-      message: "Upload gagal",
+      message: "Upload failed",
     });
   }
 });
