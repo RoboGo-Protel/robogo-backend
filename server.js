@@ -13,7 +13,7 @@ const {
 } = require("./utils/ffmpeg-utils");
 
 // 📦 Route modules
-const imageRoutes = require("./routes/reports/images");
+const imageRoutes = require("./routes/reports/image");
 const ultrasonicRoutes = require("./routes/reports/ultrasonic");
 const imuRoutes = require("./routes/reports/imu");
 const pathRoutes = require("./routes/reports/path");

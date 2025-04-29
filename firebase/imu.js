@@ -5,6 +5,7 @@ async function saveIMULog({
   sessionId = null,
   acceleration,
   gyroscope,
+  magnetometer,
   heading,
   direction,
   status,
@@ -23,14 +24,24 @@ async function saveIMULog({
       y: parseFloat(gyroscope?.y || 0),
       z: parseFloat(gyroscope?.z || 0),
     },
+    magnetometer: {
+      magnetometerX: parseFloat(magnetometer?.magnetometerX || 0),
+      magnetometerY: parseFloat(magnetometer?.magnetometerY || 0),
+      magnetometerZ: parseFloat(magnetometer?.magnetometerZ || 0),
+    },
     heading: parseFloat(heading || 0),
-    direction: direction || "N/A",
+    direction: direction || "N",
     status: status || "Normal",
     createdAt: new Date(),
   };
 
   await ref.set(data);
-  return { id: ref.id, ...data };
+  return {
+    status: "success",
+    code: 200,
+    message: "IMU log saved successfully",
+    data: { id: ref.id, ...data },
+  };
 }
 
 async function getAllIMULogs() {
