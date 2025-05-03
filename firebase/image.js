@@ -41,7 +41,7 @@ async function getAllImages() {
 async function getImageById(id) {
   const doc = await firestore.collection("images").doc(id).get();
   if (!doc.exists) {
-    return null; // Mengembalikan null jika dokumen tidak ditemukan
+    return null;
   }
 
   return { id: doc.id, ...doc.data() };
@@ -77,7 +77,7 @@ async function deleteImageByID(id) {
   const doc = await docRef.get();
 
   if (!doc.exists) {
-    return null; // Kembalikan null jika gambar tidak ditemukan
+    return null;
   }
 
   const image = doc.data();
@@ -100,17 +100,15 @@ async function deleteImageByID(id) {
     }
   }
 
-  // Hapus dokumen
   await docRef.delete();
   console.log(`Document with ID ${id} deleted from Firestore.`);
 
-  // Verifikasi apakah dokumen benar-benar hilang
   const checkDoc = await docRef.get();
   if (!checkDoc.exists) {
-    return true; // Kembalikan true jika berhasil dihapus
+    return true;
   }
 
-  return false; // Kembalikan false jika gagal menghapus
+  return false;
 }
 
 const { v4: uuidv4 } = require("uuid");

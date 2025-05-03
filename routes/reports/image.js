@@ -56,6 +56,9 @@ router.post("/", upload.single("image"), async (req, res) => {
           positionX: parseFloat(req.body.positionX || 0),
           positionY: parseFloat(req.body.positionY || 0),
         },
+        pitch: parseFloat(req.body.pitch || 0),
+        roll: parseFloat(req.body.roll || 0),
+        yaw: parseFloat(req.body.yaw || 0),
       },
     });
 
