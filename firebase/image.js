@@ -4,10 +4,10 @@ const storage = require("./storage");
 async function saveImage(data) {
   const ref = firestore.collection("images").doc();
   await ref.set({
-    filename: data.filename,
-    path: data.path,
-    imageUrl: data.imageUrl,
-    timestamp: data.timestamp,
+    filename: data.filename || null,
+    path: data.path || null,
+    imageUrl: data.imageUrl || null,
+    timestamp: data.timestamp || new Date(),
     sessionId: data.sessionId || null,
     takenWith: data.takenWith || "ESP32-CAM",
     metadata: data.metadata || {},

@@ -15,14 +15,22 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/", upload.single("image"), async (req, res) => {
   try {
-    const file = req.file;
+    let imageUrl = null;
+    let filename = null;
+    let path = null;
 
-    const { imageUrl, filename, path } = await uploadImageToStorage(file);
+    // Cek apakah ada file yang di-upload
+    if (req.file) {
+      const uploadResult = await uploadImageToStorage(req.file);
+      imageUrl = uploadResult.imageUrl;
+      filename = req.file.originalname;
+      path = uploadResult.path;
+    }
 
     const obstacle = req.body.obstacle === "true";
 
     const saved = await saveImage({
-      filename: file.originalname,
+      filename: filename,
       path: path,
       imageUrl: imageUrl,
       timestamp: new Date(),
@@ -61,6 +69,7 @@ router.post("/", upload.single("image"), async (req, res) => {
         yaw: parseFloat(req.body.yaw || 0),
       },
     });
+
     if (!req.body || Object.keys(req.body).length === 0) {
       return res.status(400).json({
         status: "error",
@@ -68,13 +77,7 @@ router.post("/", upload.single("image"), async (req, res) => {
         message: "Request body cannot be empty",
       });
     }
-    if (!saved) {
-      return res.status(400).json({
-        status: "error",
-        code: 400,
-        message: "Failed to save image",
-      });
-    }
+
     res.status(201).json({
       status: "success",
       code: 201,
@@ -87,34 +90,6 @@ router.post("/", upload.single("image"), async (req, res) => {
       status: "error",
       code: 500,
       message: "Upload failed",
-    });
-  }
-});
-
-router.get("/", async (req, res) => {
-  try {
-    const images = await getAllImages();
-
-    if (images.length === 0) {
-      return res.status(404).json({
-        status: "error",
-        code: 404,
-        message: "No images found",
-      });
-    }
-
-    res.status(200).json({
-      status: "success",
-      code: 200,
-      message: "Images retrieved successfully",
-      data: images,
-    });
-  } catch (err) {
-    console.error("Error retrieving images:", err);
-    res.status(500).json({
-      status: "error",
-      code: 500,
-      message: "Failed to retrieve images",
     });
   }
 });

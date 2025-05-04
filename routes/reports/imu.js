@@ -6,7 +6,11 @@ const {
   getIMULogsByDate,
   getIMULogsByDateAndSessionId,
   getIMULogById,
+  getAvailableDates,
+  getAvailableSessionIdsFromDate,
   deleteIMULogByID,
+  deleteIMULogByDate,
+  deleteIMULogByDateAndSessionId,
 } = require("../../firebase/imu");
 
 router.post("/", async (req, res) => {
@@ -190,6 +194,96 @@ router.get("/date/:date", async (req, res) => {
   }
 });
 
+router.get("/dates/:date/sessions", async (req, res) => {
+  const dateStr = req.params.date;
+
+  if (!dateStr) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message: "Date is required",
+    });
+  }
+
+  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const validDate = new Date(dateStr);
+  if (isNaN(validDate)) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message: "Invalid date. Expected format: yyyy-mm-dd",
+    });
+  }
+
+  if (
+    validDate.getFullYear() !== year ||
+    validDate.getMonth() !== month - 1 ||
+    validDate.getDate() !== day
+  ) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message:
+        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+    });
+  }
+
+  const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
+  try {
+    const sessionIds = await getAvailableSessionIdsFromDate(
+      startOfDay,
+      endOfDay
+    );
+    if (!sessionIds || sessionIds.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        code: 404,
+        message: "No available session IDs found for the given date",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Available session IDs retrieved successfully",
+      data: sessionIds,
+    });
+  } catch (err) {
+    console.error("Error retrieving available session IDs:", err);
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Failed to retrieve available session IDs",
+    });
+  }
+});
+
+router.get("/dates", async (req, res) => {
+  try {
+    const dates = await getAvailableDates();
+    if (!dates || dates.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        code: 404,
+        message: "No available dates found",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Available dates retrieved successfully",
+      data: dates,
+    });
+  } catch (err) {
+    console.error("Error retrieving available dates:", err);
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Failed to retrieve available dates",
+    });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const log = await getIMULogById(req.params.id);
@@ -254,7 +348,11 @@ router.delete("/date/:date/session/:sessionId", async (req, res) => {
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
   try {
-    const deleted = await deleteIMULogByID(startOfDay, endOfDay, sessionId);
+    const deleted = await deleteIMULogByDateAndSessionId(
+      startOfDay,
+      endOfDay,
+      sessionId
+    );
     if (!deleted) {
       return res.status(404).json({
         status: "error",
@@ -314,7 +412,7 @@ router.delete("/date/:date", async (req, res) => {
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
   try {
-    const deleted = await deleteIMULogByID(startOfDay, endOfDay);
+    const deleted = await deleteIMULogByDate(startOfDay, endOfDay);
     if (!deleted) {
       return res.status(404).json({
         status: "error",

@@ -112,6 +112,49 @@ async function getPathLogsByDateAndSessionId(startOfDay, endOfDay, sessionId) {
   });
 }
 
+async function getAvailableDates() {
+  const snapshot = await firestore
+    .collection("path_logs")
+    .orderBy("timestamp", "asc")
+    .get();
+
+  const dates = new Set();
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    const date = data.timestamp?.toDate?.()?.toISOString()?.split("T")[0];
+    if (date) {
+      dates.add(date);
+    }
+  });
+
+  return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
+}
+
+async function getAvailableSessionIdsFromDate(date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("path_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<", endOfDay)
+    .orderBy("sessionId", "asc")
+    .get();
+
+  const sessionIds = new Set();
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    if (data.sessionId) {
+      sessionIds.add(data.sessionId);
+    }
+  });
+
+  return Array.from(sessionIds).sort((a, b) => a - b);
+}
+
 async function deletePathLogByID(id) {
   const ref = firestore.collection("path_logs").doc(id);
   const doc = await ref.get();
@@ -174,6 +217,8 @@ module.exports = {
   getPathLogsBySessionId,
   getPathLogsByDate,
   getPathLogsByDateAndSessionId,
+  getAvailableDates,
+  getAvailableSessionIdsFromDate,
   deletePathLogByID,
   deletePathLogByDate,
   deletePathLogByDateAndSessionId,
