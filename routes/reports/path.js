@@ -73,32 +73,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
-  try {
-    const log = await getPathLogById(req.params.id);
-    if (!log) {
-      return res.status(404).json({
-        status: "error",
-        code: 404,
-        message: "Path log not found",
-      });
-    }
-    res.status(200).json({
-      status: "success",
-      code: 200,
-      message: "Path log retrieved successfully",
-      data: log,
-    });
-  } catch (err) {
-    console.error("Get Path by ID error:", err);
-    res.status(500).json({
-      status: "error",
-      code: 500,
-      message: "Failed to retrieve path log",
-    });
-  }
-});
-
 router.get("/date/:date/session/:sessionId", async (req, res) => {
   const dateStr = req.params.date;
   const sessionId = req.params.sessionId;
@@ -226,6 +200,41 @@ router.get("/date/:date", async (req, res) => {
   }
 });
 
+router.get("/session/:sessionId", async (req, res) => {
+  const sessionId = req.params.sessionId;
+  if (!sessionId) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message: "Session ID cannot be empty",
+    });
+  }
+
+  try {
+    const logs = await getPathLogsBySessionId(sessionId);
+    if (!logs || logs.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        code: 404,
+        message: "No path logs found for the given session ID",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Path logs retrieved successfully",
+      data: logs,
+    });
+  } catch (err) {
+    console.error("Get Path by session ID error:", err);
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Failed to retrieve path logs",
+    });
+  }
+});
+
 router.get("/dates/:date/sessions", async (req, res) => {
   const dateStr = req.params.date;
 
@@ -316,37 +325,28 @@ router.get("/dates", async (req, res) => {
   }
 });
 
-router.get("/session/:sessionId", async (req, res) => {
-  const sessionId = req.params.sessionId;
-  if (!sessionId) {
-    return res.status(400).json({
-      status: "error",
-      code: 400,
-      message: "Session ID cannot be empty",
-    });
-  }
-
+router.get("/:id", async (req, res) => {
   try {
-    const logs = await getPathLogsBySessionId(sessionId);
-    if (!logs || logs.length === 0) {
+    const log = await getPathLogById(req.params.id);
+    if (!log) {
       return res.status(404).json({
         status: "error",
         code: 404,
-        message: "No path logs found for the given session ID",
+        message: "Path log not found",
       });
     }
     res.status(200).json({
       status: "success",
       code: 200,
-      message: "Path logs retrieved successfully",
-      data: logs,
+      message: "Path log retrieved successfully",
+      data: log,
     });
   } catch (err) {
-    console.error("Get Path by session ID error:", err);
+    console.error("Get Path by ID error:", err);
     res.status(500).json({
       status: "error",
       code: 500,
-      message: "Failed to retrieve path logs",
+      message: "Failed to retrieve path log",
     });
   }
 });

@@ -121,8 +121,8 @@ async function getAvailableDates() {
   const dates = new Set();
   snapshot.docs.forEach((doc) => {
     const data = doc.data();
-    const date = data.timestamp?.toDate?.()?.toISOString()?.split("T")[0];
-    if (date) {
+    if (data.timestamp) {
+      const date = data.timestamp.toDate().toISOString().split("T")[0];
       dates.add(date);
     }
   });

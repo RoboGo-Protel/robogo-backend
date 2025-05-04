@@ -1,5 +1,29 @@
 const { firestore } = require("./database");
 
+function getDirectionFromHeading(heading) {
+  const directions = [
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
+    "N",
+  ];
+  const index = Math.round(heading / 22.5) % 16;
+  return directions[index];
+}
+
 async function saveIMULog({
   timestamp,
   sessionId = null,
@@ -10,6 +34,9 @@ async function saveIMULog({
   direction,
   status,
 }) {
+  const parsedHeading = parseFloat(heading || 0);
+  const calculatedDirection = getDirectionFromHeading(parsedHeading);
+
   const ref = firestore.collection("imu_logs").doc();
   const data = {
     timestamp: timestamp ? new Date(timestamp) : new Date(),
@@ -29,8 +56,8 @@ async function saveIMULog({
       magnetometerY: parseFloat(magnetometer?.magnetometerY || 0),
       magnetometerZ: parseFloat(magnetometer?.magnetometerZ || 0),
     },
-    heading: parseFloat(heading || 0),
-    direction: direction || "N",
+    heading: parsedHeading,
+    direction: direction || calculatedDirection,
     status: status || "Normal",
     createdAt: new Date(),
   };
@@ -41,6 +68,93 @@ async function saveIMULog({
     code: 200,
     message: "IMU log saved successfully",
     data: { id: ref.id, ...data },
+  };
+}
+
+async function getAllSummaries() {
+  const snapshot = await firestore
+    .collection("imu_logs")
+    .orderBy("timestamp", "asc")
+    .get();
+
+  let total_heading = 0;
+  let max_turn_angle = 0;
+  let count = 0;
+
+  let previous_heading = null;
+  let min_heading = Infinity;
+  let max_heading = -Infinity;
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data?.heading == null) return;
+
+    const heading = data.heading;
+    total_heading += heading;
+    count++;
+
+    min_heading = Math.min(min_heading, heading);
+    max_heading = Math.max(max_heading, heading);
+
+    if (previous_heading != null) {
+      const diff = Math.abs(heading - previous_heading);
+      max_turn_angle = Math.max(max_turn_angle, diff);
+    }
+
+    previous_heading = heading;
+  });
+
+  return {
+    average_heading: count > 0 ? total_heading / count : 0,
+    heading_range: count > 0 ? [min_heading, max_heading] : [0, 0],
+    total_orientation_changes: count > 1 ? count - 1 : 0,
+    max_turn_angle: max_turn_angle,
+  };
+}
+
+async function getSummariesByDate(date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("imu_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<", endOfDay)
+    .orderBy("timestamp", "asc")
+    .get();
+
+  let total_heading = 0;
+  let heading_differences = 0;
+  let max_turn_angle = 0;
+  let count = 0;
+
+  let previous_heading = null;
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data?.heading == null) return;
+
+    const heading = data.heading;
+    total_heading += heading;
+    count++;
+
+    if (previous_heading != null) {
+      const diff = Math.abs(heading - previous_heading);
+      heading_differences += diff;
+      max_turn_angle = Math.max(max_turn_angle, diff);
+    }
+
+    previous_heading = heading;
+  });
+
+  return {
+    average_heading: count > 0 ? total_heading / count : 0,
+    heading_range: count > 1 ? heading_differences / (count - 1) : 0,
+    total_orientation_changes: count > 1 ? count - 1 : 0,
+    max_turn_angle: max_turn_angle,
   };
 }
 
@@ -207,6 +321,8 @@ async function deleteIMULogByDateAndSessionId(startOfDay, endOfDay, sessionId) {
 
 module.exports = {
   saveIMULog,
+  getAllSummaries,
+  getSummariesByDate,
   getAllIMULogs,
   getIMULogById,
   getIMULogsByDate,

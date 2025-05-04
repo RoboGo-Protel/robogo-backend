@@ -191,6 +191,49 @@ async function getUltrasonicLogsByDateAndSessionId(
   });
 }
 
+async function getAvailableDates() {
+  const snapshot = await firestore
+    .collection("ultrasonic_logs")
+    .orderBy("timestamp", "asc")
+    .get();
+
+  const dates = new Set();
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data && data.timestamp) {
+      const date = data.timestamp.toDate().toISOString().split("T")[0];
+      dates.add(date);
+    }
+  });
+
+  return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
+}
+
+async function getAvailableSessionIdsFromDate(date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("ultrasonic_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<=", endOfDay)
+    .orderBy("sessionId")
+    .get();
+
+  const sessionIds = new Set();
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    if (data && data.sessionId != null) {
+      sessionIds.add(data.sessionId);
+    }
+  });
+
+  return Array.from(sessionIds).sort((a, b) => a - b);
+}
+
 async function deleteUltrasonicLogByID(id) {
   const ref = firestore.collection("ultrasonic_logs").doc(id);
   const doc = await ref.get();
@@ -255,6 +298,8 @@ module.exports = {
   getUltrasonicLogsByDate,
   getUltrasonicLogById,
   getUltrasonicLogsByDateAndSessionId,
+  getAvailableDates,
+  getAvailableSessionIdsFromDate,
   deleteUltrasonicLogByID,
   deleteUltrasonicLogByDate,
   deleteUltrasonicLogByDateAndSessionId,
