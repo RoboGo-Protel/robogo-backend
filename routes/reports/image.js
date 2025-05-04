@@ -61,7 +61,20 @@ router.post("/", upload.single("image"), async (req, res) => {
         yaw: parseFloat(req.body.yaw || 0),
       },
     });
-
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({
+        status: "error",
+        code: 400,
+        message: "Request body cannot be empty",
+      });
+    }
+    if (!saved) {
+      return res.status(400).json({
+        status: "error",
+        code: 400,
+        message: "Failed to save image",
+      });
+    }
     res.status(201).json({
       status: "success",
       code: 201,
@@ -83,11 +96,10 @@ router.get("/", async (req, res) => {
     const images = await getAllImages();
 
     if (images.length === 0) {
-      return res.status(204).json({
-        status: "success",
-        code: 204,
+      return res.status(404).json({
+        status: "error",
+        code: 404,
         message: "No images found",
-        data: [],
       });
     }
 
@@ -108,20 +120,25 @@ router.get("/", async (req, res) => {
 });
 
 router.get("/date/:date", async (req, res) => {
-  const date = req.params.date;
+  const dateStr = req.params.date;
 
-  const datePattern = /^\d{2}-\d{2}-\d{4}$/;
-  if (!datePattern.test(date)) {
+  if (!dateStr) {
     return res.status(400).json({
       status: "error",
       code: 400,
-      message: "Invalid date format. The correct format is DD-MM-YYYY.",
+      message: "Date is required",
     });
   }
 
-  const [day, month, year] = date.split("-").map((num) => parseInt(num, 10));
-
-  const validDate = new Date(year, month - 1, day);
+  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const validDate = new Date(dateStr);
+  if (isNaN(validDate)) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message: "Invalid date. Expected format: yyyy-mm-dd",
+    });
+  }
 
   if (
     validDate.getFullYear() !== year ||
@@ -143,11 +160,10 @@ router.get("/date/:date", async (req, res) => {
     const images = await getAllImagesByDate(startOfDay, endOfDay);
 
     if (images.length === 0) {
-      return res.status(204).json({
-        status: "success",
-        code: 204,
+      return res.status(404).json({
+        status: "error",
+        code: 404,
         message: "No images found for the given date",
-        data: [],
         meta: {
           pagination: {
             current_page: 1,

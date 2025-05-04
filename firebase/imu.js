@@ -55,8 +55,8 @@ async function getAllIMULogs() {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
@@ -69,20 +69,22 @@ async function getIMULogById(id) {
   return {
     id: doc.id,
     ...data,
-    timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-    createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+    timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+    createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
   };
 }
 
 async function getIMULogsByDate(date) {
-  const start = new Date(date);
-  const end = new Date(date);
-  end.setDate(end.getDate() + 1);
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
 
   const snapshot = await firestore
     .collection("imu_logs")
-    .where("timestamp", ">=", start)
-    .where("timestamp", "<", end)
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<", endOfDay)
     .orderBy("timestamp", "asc")
     .get();
 
@@ -91,21 +93,17 @@ async function getIMULogsByDate(date) {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
 
-async function getIMULogsByDateAndSessionId(date, sessionId) {
-  const start = new Date(date);
-  const end = new Date(date);
-  end.setDate(end.getDate() + 1);
-
+async function getIMULogsByDateAndSessionId(startOfDay, endOfDay, sessionId) {
   const snapshot = await firestore
     .collection("imu_logs")
-    .where("timestamp", ">=", start)
-    .where("timestamp", "<", end)
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<", endOfDay)
     .where("sessionId", "==", Number(sessionId))
     .orderBy("timestamp", "asc")
     .get();
@@ -115,8 +113,8 @@ async function getIMULogsByDateAndSessionId(date, sessionId) {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
@@ -129,6 +127,41 @@ async function deleteIMULogByID(id) {
   return true;
 }
 
+async function deleteIMULogByDate(date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("imu_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<", endOfDay)
+    .get();
+
+  const batch = firestore.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+}
+
+async function deleteIMULogByDateAndSessionId(startOfDay, endOfDay, sessionId) {
+  const snapshot = await firestore
+    .collection("imu_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<", endOfDay)
+    .where("sessionId", "==", Number(sessionId))
+    .get();
+
+  const batch = firestore.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+}
+
 module.exports = {
   saveIMULog,
   getAllIMULogs,
@@ -136,4 +169,6 @@ module.exports = {
   getIMULogsByDate,
   getIMULogsByDateAndSessionId,
   deleteIMULogByID,
+  deleteIMULogByDate,
+  deleteIMULogByDateAndSessionId,
 };

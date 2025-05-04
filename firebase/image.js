@@ -9,7 +9,6 @@ async function saveImage(data) {
     imageUrl: data.imageUrl,
     timestamp: data.timestamp,
     sessionId: data.sessionId || null,
-    category: data.category || false,
     takenWith: data.takenWith || "ESP32-CAM",
     metadata: data.metadata || {},
     obstacle: data.obstacle || false,
@@ -44,7 +43,12 @@ async function getImageById(id) {
     return null;
   }
 
-  return { id: doc.id, ...doc.data() };
+  return {
+    id: doc.id,
+    ...doc.data(),
+    timestamp: doc.data().timestamp?.toDate?.()?.toISOString() || null,
+    createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || null,
+  };
 }
 
 async function getAllImagesByDate(date) {

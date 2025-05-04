@@ -30,8 +30,8 @@ async function getAllPathLogs() {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
@@ -44,8 +44,8 @@ async function getPathLogById(id) {
   return {
     id: doc.id,
     ...data,
-    timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-    createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+    timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+    createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
   };
 }
 
@@ -61,8 +61,8 @@ async function getPathLogsBySessionId(sessionId) {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
@@ -86,19 +86,13 @@ async function getPathLogsByDate(date) {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
 
-async function getPathLogsByDateAndSessionId(date, sessionId) {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
+async function getPathLogsByDateAndSessionId(startOfDay, endOfDay, sessionId) {
   const snapshot = await firestore
     .collection("path_logs")
     .where("timestamp", ">=", startOfDay)
@@ -112,8 +106,8 @@ async function getPathLogsByDateAndSessionId(date, sessionId) {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
@@ -150,13 +144,11 @@ async function deletePathLogByDate(date) {
   return true;
 }
 
-async function deletePathLogByDateAndSessionId(date, sessionId) {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
+async function deletePathLogByDateAndSessionId(
+  startOfDay,
+  endOfDay,
+  sessionId
+) {
   const snapshot = await firestore
     .collection("path_logs")
     .where("timestamp", ">=", startOfDay)

@@ -123,16 +123,23 @@ async function getAllUltrasonicLogs() {
     return {
       id: doc.id,
       ...data,
-      createdAt: data.createdAt?.toDate?.() || null,
-      timestamp: data.timestamp?.toDate?.() || null,
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
 
 async function getUltrasonicLogById(id) {
-  const doc = await firestore.collection("ultrasonic_logs").doc(id).get();
+  const ref = await firestore.collection("ultrasonic_logs").doc(id);
+  const doc = await ref.get();
   if (!doc.exists) return null;
-  return { id: doc.id, ...doc.data() };
+  const data = doc.data();
+  return {
+    id: doc.id,
+    ...data,
+    timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+    createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+  };
 }
 
 async function getUltrasonicLogsByDate(date) {
@@ -154,19 +161,17 @@ async function getUltrasonicLogsByDate(date) {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
 
-async function getUltrasonicLogsByDateAndSessionId(date, sessionId) {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
+async function getUltrasonicLogsByDateAndSessionId(
+  startOfDay,
+  endOfDay,
+  sessionId
+) {
   const snapshot = await firestore
     .collection("ultrasonic_logs")
     .where("timestamp", ">=", startOfDay)
@@ -180,8 +185,8 @@ async function getUltrasonicLogsByDateAndSessionId(date, sessionId) {
     return {
       id: doc.id,
       ...data,
-      timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
-      createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
 }
@@ -219,13 +224,11 @@ async function deleteUltrasonicLogByDate(date) {
   return true;
 }
 
-async function deleteUltrasonicLogByDateAndSessionId(date, sessionId) {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
+async function deleteUltrasonicLogByDateAndSessionId(
+  startOfDay,
+  endOfDay,
+  sessionId
+) {
   const snapshot = await firestore
     .collection("ultrasonic_logs")
     .where("timestamp", ">=", startOfDay)
