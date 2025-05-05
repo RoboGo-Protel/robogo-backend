@@ -10,6 +10,7 @@ const {
   isRecording,
 } = require("./utils/ffmpeg-utils");
 
+const logsRoutes = require("./routes/monitoring/logs");
 const imageRoutes = require("./routes/reports/image");
 const ultrasonicRoutes = require("./routes/reports/ultrasonic");
 const imuRoutes = require("./routes/reports/imu");
@@ -69,6 +70,7 @@ v1.get("/status", (req, res) => {
   res.json({ recording: isRecording() });
 });
 
+v1.use("/monitoring/logs", logsRoutes);
 v1.use("/reports/gallery/images", imageRoutes);
 v1.use("/reports/ultrasonic", ultrasonicRoutes);
 v1.use("/reports/imu", imuRoutes);

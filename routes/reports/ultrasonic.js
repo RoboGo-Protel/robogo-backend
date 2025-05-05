@@ -10,10 +10,11 @@ const {
   getUltrasonicLogById,
   getAvailableDates,
   getAvailableSessionIdsFromDate,
+  getAvailableDatesWithSessions,
   deleteUltrasonicLogByID,
   deleteUltrasonicLogByDate,
   deleteUltrasonicLogByDateAndSessionId,
-} = require("../../firebase/ultrasonic");
+} = require("../../firebase/reports/ultrasonic");
 
 router.post("/", async (req, res) => {
   try {
@@ -77,6 +78,32 @@ router.get("/", async (req, res) => {
       status: "error",
       code: 500,
       message: "Failed to retrieve ultrasonic logs",
+    });
+  }
+});
+
+router.get("/dates-with-sessions", async (req, res) => {
+  try {
+    const dates = await getAvailableDatesWithSessions();
+    if (!dates || dates.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        code: 404,
+        message: "No available dates with sessions found",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Available dates with sessions retrieved successfully",
+      data: dates,
+    });
+  } catch (err) {
+    console.error("Error retrieving available dates with sessions:", err);
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Failed to retrieve available dates with sessions",
     });
   }
 });
