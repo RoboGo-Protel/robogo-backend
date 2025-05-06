@@ -13,16 +13,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up SSH key
-      uses: webfactory/ssh-agent@v0.5.3
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: Deploy to server
+    - name: Install cloudflared
       run: |
-        ssh -o StrictHostKeyChecking=no root@192.168.1.5 << 'EOF'
+        curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+        chmod +x cloudflared
+        sudo mv cloudflared /usr/local/bin/
+
+    - name: Save CF token to file
+      run: |
+        echo "${{ secrets.CF_ACCESS_TOKEN }}" > /tmp/cf-token
+
+    - name: Deploy to server with PNPM
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -o ProxyCommand="cloudflared access ssh --token-file /tmp/cf-token --hostname ssh.robogo.website" \
+            root@ssh.robogo.website << 'EOF'
           cd RoboGo_Dashboard/server/
           git pull origin main
-          npm install
+          pnpm install
+          pnpm run build
           pm2 restart robogo_backend || pm2 start server.js --name robogo_backend
         EOF
