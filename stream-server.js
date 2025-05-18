@@ -105,26 +105,47 @@ wss.on("connection", (ws) => {
   });
 });
 
-app.get("/capture", (req, res) => {
-  if (!latestFrame) {
-    return res
-      .status(500)
-      .json({ success: false, message: "No frame available" });
-  }
-
-  const base64Data = latestFrame.replace(/^data:image\/jpeg;base64,/, "");
+app.get("/capture", async (req, res) => {
   const filename = `snapshot_${Date.now()}.jpg`;
   const filePath = path.join(__dirname, "public", "images", filename);
-
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
-  fs.writeFile(filePath, base64Data, "base64", (err) => {
-    if (err) {
-      console.error("❌ Save error:", err);
-      return res.status(500).json({ success: false });
+  const ffmpeg = spawn("ffmpeg", [
+    "-y",
+    "-i",
+    "http://192.168.238.17/stream",
+    "-frames:v",
+    "1",
+    "-q:v",
+    "2",
+    "-update",
+    "1",
+    filePath,
+  ]);
+
+  let timeout = setTimeout(() => {
+    ffmpeg.kill("SIGKILL");
+    console.error("❌ ffmpeg timeout, process killed");
+    return res
+      .status(504)
+      .json({ success: false, error: "FFmpeg timeout (no frame received)" });
+  }, 90000); // 90 seconds timeout
+
+  ffmpeg.stderr.on("data", (data) => {
+    console.log("ffmpeg stderr:", data.toString());
+  });
+
+  ffmpeg.on("close", (code) => {
+    clearTimeout(timeout);
+    if (code === 0 && fs.existsSync(filePath)) {
+      console.log("📸 Frame captured:", filename);
+      res.json({ success: true, path: `/public/images/${filename}` });
+    } else {
+      console.error("❌ ffmpeg exited with code", code);
+      res
+        .status(500)
+        .json({ success: false, error: "Failed to capture frame" });
     }
-    console.log("📸 Saved:", filename);
-    res.json({ success: true, path: `/public/images/${filename}` });
   });
 });
 

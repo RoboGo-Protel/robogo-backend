@@ -10,11 +10,14 @@ const {
   isRecording,
 } = require("./utils/ffmpeg-utils");
 
+const realtimeRoutes = require("./routes/monitoring/realtime");
 const logsRoutes = require("./routes/monitoring/logs");
 const imageRoutes = require("./routes/reports/image");
 const ultrasonicRoutes = require("./routes/reports/ultrasonic");
 const imuRoutes = require("./routes/reports/imu");
 const pathRoutes = require("./routes/reports/path");
+const { streamHandler } = require("./routes/monitoring/camera");
+const captureRoutes = require("./routes/monitoring/capture");
 
 const app = express();
 const PORT = 4000;
@@ -75,6 +78,9 @@ v1.use("/reports/gallery/images", imageRoutes);
 v1.use("/reports/ultrasonic", ultrasonicRoutes);
 v1.use("/reports/imu", imuRoutes);
 v1.use("/reports/paths", pathRoutes);
+v1.use("/monitoring/camera-stream", streamHandler);
+v1.use("/monitoring/capture", captureRoutes);
+v1.use("/monitoring/realtime", realtimeRoutes);
 
 app.use("/api/v1", v1);
 
