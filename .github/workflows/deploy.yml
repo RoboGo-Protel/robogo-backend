@@ -41,7 +41,8 @@ jobs:
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             cd /mnt/sdcard/RoboGo_Dashboard/server/
+            pm2 stop robogo_be
             git stash
             npm install
-            pm2 restart newsinsight_fe
+            pm2 restart robogo_be
           '
