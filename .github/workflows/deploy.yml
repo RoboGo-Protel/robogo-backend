@@ -43,6 +43,7 @@ jobs:
             cd /mnt/sdcard/RoboGo_Dashboard/server/
             pm2 stop robogo_be
             git stash
+            git pull
             npm install
             pm2 restart robogo_be
           '
