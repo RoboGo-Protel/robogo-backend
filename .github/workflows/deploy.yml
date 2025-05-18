@@ -1,4 +1,4 @@
-name: Auto Deploy to Server
+name: Deploy via SSH with Cloudflared
 
 on:
   push:
@@ -10,27 +10,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Install cloudflared
-      run: |
-        curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
-        chmod +x cloudflared
-        sudo mv cloudflared /usr/local/bin/
+      - name: Install cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
 
-    - name: Save CF token to file
-      run: |
-        echo "${{ secrets.CF_ACCESS_TOKEN }}" > /tmp/cf-token
+      - name: Setup SSH directory and private key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-    - name: Deploy to server with PNPM
-      run: |
-        ssh -o StrictHostKeyChecking=no \
-            -o ProxyCommand="cloudflared access ssh --token-file /tmp/cf-token --hostname ssh.robogo.website" \
-            root@ssh.robogo.website << 'EOF'
-          cd RoboGo_Dashboard/server/
-          git pull origin main
-          pnpm install
-          pnpm run build
-          pm2 restart robogo_backend || pm2 start server.js --name robogo_backend
-        EOF
+      - name: Setup Cloudflared cert
+        run: |
+          mkdir -p ~/.cloudflared
+          echo "${{ secrets.CLOUDFLARE_CERT }}" > ~/.cloudflared/cert.pem
+
+      - name: Setup known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy app via SSH
+        run: |
+          ssh -o "ProxyCommand=cloudflared access ssh --hostname ssh.robogo.website" -o StrictHostKeyChecking=no root@ssh.robogo.website bash -lc '
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            cd /mnt/sdcard/RoboGo_Dashboard/server/
+            git stash
+            npm install
+            pm2 restart newsinsight_fe
+          '
