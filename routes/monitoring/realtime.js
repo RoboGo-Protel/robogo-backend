@@ -11,6 +11,7 @@ const {
   getAllRealtimeByDate,
   deleteRealtimeByID,
   uploadImageToStorage,
+  getLastDataRealtime,
 } = require("../../firebase/monitoring/realtime");
 
 router.post("/", upload.single("image"), async (req, res) => {
@@ -147,6 +148,31 @@ router.get("/", async (req, res) => {
       status: "error",
       code: 500,
       message: "Failed to retrieve data",
+      error: err.message,
+    });
+  }
+});
+
+router.get("/last", async (req, res) => {
+  try {
+    const data = await getLastDataRealtime();
+
+    if (!data) {
+      return res.status(404).json({ message: "No data found" });
+    }
+
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Last data retrieved successfully",
+      data: data,
+    });
+  } catch (err) {
+    console.error("Error retrieving last data:", err);
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Failed to retrieve last data",
       error: err.message,
     });
   }

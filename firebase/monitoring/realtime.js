@@ -27,6 +27,27 @@ async function saveRealtime(data) {
   return { id: ref.id, ...baseData, ...imageData };
 }
 
+async function getLastDataRealtime() {
+  const snapshot = await firestore
+    .collection("realtime_monitoring")
+    .where("metadata", "!=", {})
+    .orderBy("createdAt", "desc")
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+  const doc = snapshot.docs[0];
+  const data = doc.data();
+  return {
+    id: doc.id,
+    ...data,
+    timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+    createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+  };
+}
+
 async function getAllRealtime() {
   const snapshot = await firestore
     .collection("realtime_monitoring")
@@ -173,5 +194,6 @@ module.exports = {
   getRealtimeById,
   getAllRealtimeByDate,
   deleteRealtimeByID,
+  getLastDataRealtime,
   uploadImageToStorage,
 };
