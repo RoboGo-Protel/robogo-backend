@@ -12,15 +12,16 @@ const {
   deleteRealtimeByID,
   uploadImageToStorage,
   getLastDataRealtime,
+  startMonitoring,
+  stopMonitoring,
 } = require("../../controllers/monitoring/newRealtimeController");
 
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     const file = req.file;
     const obstacle = req.body.obstacle === "true";
-    const sessionId = parseInt(req.body.sessionId) || null;
     const takenWith = req.body.takenWith || null;
-    let metadata = null;
+
     const metadataKeys = [
       "ultrasonic",
       "heading",
@@ -45,6 +46,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       "yaw",
     ];
 
+    let metadata = null;
     const hasMetadata = metadataKeys.some((key) => req.body[key] !== undefined);
 
     if (hasMetadata) {
@@ -97,7 +99,6 @@ router.post("/", upload.single("image"), async (req, res) => {
       path,
       imageUrl,
       timestamp: new Date(),
-      sessionId,
       obstacle,
       takenWith,
       ...(metadata ? { metadata } : {}),
@@ -211,6 +212,32 @@ router.get("/date/:date", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+router.get("/start-monitoring", async (req, res) => {
+  try {
+    const result = await startMonitoring();
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Error starting monitoring:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/stop-monitoring", async (req, res) => {
+  try {
+    const result = await stopMonitoring();
+    if (!result) {
+      return res
+        .status(404)
+        .json({ message: "No active monitoring session found" });
+    }
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Stop monitoring error:", err);
+    res.status(500).json({ error: "Failed to stop monitoring" });
+  }
+});
+
 
 router.get("/:id", async (req, res) => {
   try {

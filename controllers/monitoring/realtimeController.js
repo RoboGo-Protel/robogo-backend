@@ -7,7 +7,7 @@ async function saveRealtime(data) {
 
   const baseData = {
     timestamp: data.timestamp || new Date(),
-    sessionId: data.sessionId || null,
+    sessionId: data.sessionId || -1,
     metadata: data.metadata || {},
     obstacle: data.obstacle || false,
     createdAt: new Date(),

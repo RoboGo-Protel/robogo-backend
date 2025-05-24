@@ -3,11 +3,18 @@ const storage = require("../storage");
 const { v4: uuidv4 } = require("uuid");
 
 async function saveRealtime(data) {
+  const currentSessionSnap = await rtdb.ref("current_session").once("value");
+  let sessionId = currentSessionSnap.val();
+
+  if (!sessionId || sessionId < 1) {
+    sessionId = -1;
+  }
+
   const ref = rtdb.ref("realtime_monitoring").push();
 
   const baseData = {
     timestamp: data.timestamp || new Date().toISOString(),
-    sessionId: data.sessionId || null,
+    sessionId,
     metadata: data.metadata || {},
     obstacle: data.obstacle || false,
     createdAt: new Date().toISOString(),
@@ -162,6 +169,39 @@ async function uploadImageToStorage(file) {
   return { filename, path, imageUrl: url };
 }
 
+async function startMonitoring() {
+  const currentSessionRef = rtdb.ref("current_session");
+  const currentSessionSnap = await currentSessionRef.once("value");
+  const currentSession = currentSessionSnap.val();
+
+  if (currentSession && currentSession > 0) {
+    return { sessionId: currentSession };
+  }
+
+  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const val = snapshot.val();
+
+  let maxSessionId = 0;
+  if (val) {
+    Object.values(val).forEach((item) => {
+      if (typeof item.sessionId === "number" && item.sessionId > maxSessionId) {
+        maxSessionId = item.sessionId;
+      }
+    });
+  }
+
+  const newSessionId = maxSessionId + 1;
+  await currentSessionRef.set(newSessionId);
+
+  return { sessionId: newSessionId };
+}
+
+async function stopMonitoring() {
+  const currentSessionRef = rtdb.ref("current_session");
+  await currentSessionRef.set(-1);
+  return { stopped: true };
+}
+
 module.exports = {
   saveRealtime,
   getAllRealtime,
@@ -172,4 +212,7 @@ module.exports = {
   deleteRealtimeByID,
   getLastDataRealtime,
   uploadImageToStorage,
+
+  startMonitoring,
+  stopMonitoring,
 };
