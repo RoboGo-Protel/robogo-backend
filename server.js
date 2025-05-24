@@ -10,16 +10,17 @@ const {
   isRecording,
 } = require("./utils/ffmpeg-utils");
 
-const realtimeRoutes = require("./routes/monitoring/realtime");
-const logsRoutes = require("./routes/monitoring/logs");
-const imageRoutes = require("./routes/reports/image");
-const ultrasonicRoutes = require("./routes/reports/ultrasonic");
-const imuRoutes = require("./routes/reports/imu");
-const pathRoutes = require("./routes/reports/path");
-const { streamHandler } = require("./routes/monitoring/camera");
-const captureRoutes = require("./routes/monitoring/capture");
-const galleryRoutes = require("./routes/reports/v2/gallery");
-const obstacleAnalyzerRoutes = require("./routes/analyze/obstacle");
+const usersRoutes = require("./routes/auth/usersRoutes");
+const realtimeRoutes = require("./routes/monitoring/realtimeRoutes");
+const logsRoutes = require("./routes/monitoring/logsRoutes");
+const imageRoutes = require("./routes/reports/imageRoutes");
+const ultrasonicRoutes = require("./routes/reports/ultrasonicRoutes");
+const imuRoutes = require("./routes/reports/imuRoutes");
+const pathRoutes = require("./routes/reports/pathRoutes");
+const { streamHandler } = require("./routes/monitoring/cameraRoutes");
+const captureRoutes = require("./routes/monitoring/captureRoutes");
+const galleryRoutes = require("./routes/reports/v2/galleryRoutes");
+const obstacleAnalyzerRoutes = require("./routes/analyze/obstacleRoutes");
 
 const app = express();
 const PORT = 4000;
@@ -79,8 +80,8 @@ v1.get("/status", (req, res) => {
   res.json({ recording: isRecording() });
 });
 
+v1.use("/auth", usersRoutes);
 v1.use("/monitoring/logs", logsRoutes);
-
 v1.use("/reports/gallery", galleryRoutes);
 v1.use("/reports/ultrasonic", ultrasonicRoutes);
 v1.use("/reports/imu", imuRoutes);

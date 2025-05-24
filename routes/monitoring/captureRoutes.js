@@ -1,4 +1,4 @@
-const { getLastFrame } = require("./camera"); // pastikan path sesuai
+const { getLastFrame } = require("./cameraRoutes"); // pastikan path sesuai
 
 module.exports = (req, res) => {
   const frame = getLastFrame();

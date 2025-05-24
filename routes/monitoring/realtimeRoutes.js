@@ -12,7 +12,7 @@ const {
   deleteRealtimeByID,
   uploadImageToStorage,
   getLastDataRealtime,
-} = require("../../firebase/monitoring/realtime");
+} = require("../../controllers/monitoring/newRealtimeController");
 
 router.post("/", upload.single("image"), async (req, res) => {
   try {
@@ -203,19 +203,19 @@ router.get("/images", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/date/:date", async (req, res) => {
   try {
-    const data = await getRealtimeById(req.params.id);
-    if (!data) return res.status(404).json({ message: "Not found" });
+    const data = await getAllRealtimeByDate(req.params.date);
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get("/date/:date", async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const data = await getAllRealtimeByDate(req.params.date);
+    const data = await getRealtimeById(req.params.id);
+    if (!data) return res.status(404).json({ message: "Not found" });
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });

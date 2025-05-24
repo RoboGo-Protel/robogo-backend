@@ -7,7 +7,7 @@ const {
   getAllImagesByDate,
   downloadImageByID,
   deleteImageByID,
-} = require("../../../firebase/reports/v2/gallery");
+} = require("../../../controllers/reports/v2/galleryController");
 
 router.get("/download/:id", async (req, res) => {
   const { id } = req.params;

@@ -4,7 +4,7 @@ const {
   saveLog,
   getAllLogs,
   getCurrentSessionLogs,
-} = require("../../firebase/monitoring/logs");
+} = require("../../controllers/monitoring/logsController");
 
 router.post("/", async (req, res) => {
   try {
