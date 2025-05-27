@@ -236,31 +236,26 @@ async function uploadImageToStorage(file) {
 }
 
 async function startMonitoring() {
-  const currentSessionRef = rtdb.ref("current_session");
-  const currentSessionSnap = await currentSessionRef.once("value");
-  const currentSession = currentSessionSnap.val();
+  const monitoringRef = rtdb.ref("realtime_monitoring");
 
-  if (currentSession && currentSession > 0) {
-    return { sessionId: currentSession };
-  }
+  const snapshot = await monitoringRef.once("value");
+  const data = snapshot.val();
 
-  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
-  const val = snapshot.val();
+  const lastSessionId = data
+    ? Math.max(...Object.keys(data).map((key) => parseInt(key)))
+    : 0;
 
-  let maxSessionId = 0;
-  if (val) {
-    Object.values(val).forEach((item) => {
-      if (typeof item.sessionId === "number" && item.sessionId > maxSessionId) {
-        maxSessionId = item.sessionId;
-      }
-    });
-  }
+  const newSessionId = lastSessionId + 1;
 
-  const newSessionId = maxSessionId + 1;
-  await currentSessionRef.set(newSessionId);
+  // Buat session baru kosong (tanpa isi) di realtime_monitoring/{newSessionId}
+  await rtdb.ref(`realtime_monitoring/${newSessionId}`).set({});
+
+  // Update current_session
+  await rtdb.ref("current_session").set(newSessionId);
 
   return { sessionId: newSessionId };
 }
+
 
 async function stopMonitoring() {
   const currentSessionRef = rtdb.ref("current_session");
