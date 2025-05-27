@@ -37,10 +37,12 @@ async function restructureRealtimeData() {
 
 async function saveRealtime(data) {
   const currentSessionSnap = await rtdb.ref("current_session").once("value");
-  let sessionId = currentSessionSnap.val();
+  const sessionId = currentSessionSnap.val();
 
-  if (!sessionId || sessionId < 1) {
-    sessionId = -1;
+  if (!sessionId || typeof sessionId !== "number" || sessionId < 1) {
+    throw new Error(
+      "Invalid or missing current_session value in the database."
+    );
   }
 
   const ref = rtdb.ref(`realtime_monitoring/${sessionId}`).push();
@@ -66,6 +68,7 @@ async function saveRealtime(data) {
 
   return { id: ref.key, ...baseData, ...imageData };
 }
+
 
 async function getLastDataRealtime() {
   const snapshot = await rtdb
