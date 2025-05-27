@@ -4,6 +4,7 @@ const {
   saveIMULog,
   getAllSummaries,
   getSummariesByDate,
+  getSummariesByDateAndSessionId,
   getAllIMULogs,
   getIMULogsByDate,
   getIMULogsByDateAndSessionId,
@@ -14,7 +15,7 @@ const {
   deleteIMULogByID,
   deleteIMULogByDate,
   deleteIMULogByDateAndSessionId,
-} = require("../../controllers/reports/imuController");
+} = require("../../controllers/reports/rtdb/newIMUController");
 
 router.post("/", async (req, res) => {
   try {
@@ -178,6 +179,68 @@ router.get("/summaries/:date", async (req, res) => {
       status: "error",
       code: 500,
       message: "Failed to retrieve summaries by date",
+    });
+  }
+});
+
+router.get("/summaries/date/:date/session/:sessionId", async (req, res) => {
+  const dateStr = req.params.date;
+  const sessionId = req.params.sessionId;
+
+  if (!sessionId) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message: "Session ID is required",
+    });
+  }
+
+  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const validDate = new Date(dateStr);
+  if (isNaN(validDate)) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message: "Invalid date. Expected format: yyyy-mm-dd",
+    });
+  }
+
+  if (
+    validDate.getFullYear() !== year ||
+    validDate.getMonth() !== month - 1 ||
+    validDate.getDate() !== day
+  ) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message:
+        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+    });
+  }
+
+  try {
+    // Panggil fungsi dengan parameter yang sesuai
+    const summary = await getSummariesByDateAndSessionId(dateStr, sessionId);
+
+    if (!summary) {
+      return res.status(404).json({
+        status: "error",
+        code: 404,
+        message: "No summaries found for the given date and session ID",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Summaries retrieved successfully",
+      data: summary,
+    });
+  } catch (err) {
+    console.error("Error retrieving summaries:", err);
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Failed to retrieve summaries",
     });
   }
 });

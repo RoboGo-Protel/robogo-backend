@@ -1,6 +1,39 @@
-const { rtdb } = require("../database");
-const storage = require("../storage");
+const { rtdb } = require("../../database");
+const storage = require("../../storage");
 const { v4: uuidv4 } = require("uuid");
+
+async function restructureRealtimeData() {
+  const oldRef = rtdb.ref("realtime_monitoring");
+  const snapshot = await oldRef.once("value");
+  const oldData = snapshot.val();
+
+  if (!oldData) {
+    console.log("No data to restructure.");
+    return { migrated: 0 };
+  }
+
+  let migratedCount = 0;
+
+  for (const [id, entry] of Object.entries(oldData)) {
+    if (typeof entry === "object" && entry.sessionId !== undefined) {
+      const sessionId = entry.sessionId;
+
+      if (!sessionId || typeof sessionId !== "number" || sessionId < 1) {
+        console.warn(`Invalid sessionId for entry ${id}, skipping.`);
+        continue;
+      }
+
+      const newRef = rtdb.ref(`realtime_monitoring/${sessionId}/${id}`);
+      await newRef.set(entry);
+      await rtdb.ref(`realtime_monitoring/${id}`).remove();
+
+      migratedCount++;
+    }
+  }
+
+  console.log(`Restructure complete. Migrated ${migratedCount} entries.`);
+  return { migrated: migratedCount };
+}
 
 async function saveRealtime(data) {
   const currentSessionSnap = await rtdb.ref("current_session").once("value");
@@ -10,7 +43,7 @@ async function saveRealtime(data) {
     sessionId = -1;
   }
 
-  const ref = rtdb.ref("realtime_monitoring").push();
+  const ref = rtdb.ref(`realtime_monitoring/${sessionId}`).push();
 
   const baseData = {
     timestamp: data.timestamp || new Date().toISOString(),
@@ -85,6 +118,19 @@ async function getAllRealtimeWithImage() {
 
   return Object.entries(val)
     .filter(([, item]) => item.imageUrl)
+    .map(([id, item]) => ({ id, ...item }))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+async function getAllRealtimeIncludingMetadata() {
+  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const val = snapshot.val();
+  if (!val) return [];
+
+  return Object.entries(val)
+    .filter(
+      ([, item]) => item.metadata && Object.keys(item.metadata).length > 0
+    )
     .map(([id, item]) => ({ id, ...item }))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
@@ -203,9 +249,11 @@ async function stopMonitoring() {
 }
 
 module.exports = {
+  restructureRealtimeData,
   saveRealtime,
   getAllRealtime,
   getAllRealtimeWithImage,
+  getAllRealtimeIncludingMetadata,
   getRealtimeById,
   getAllRealtimeByDate,
   getAllRealtimeByLatestData,

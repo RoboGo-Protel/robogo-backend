@@ -6,7 +6,7 @@ let lastFrame = null;
 const startCameraStream = () => {
   const req = http.request(
     {
-      hostname: "192.168.238.17",
+      hostname: "192.168.298.17",
       port: 80,
       path: "/stream",
       method: "GET",

@@ -4,9 +4,11 @@ const multer = require("multer");
 const upload = multer();
 
 const {
+  restructureRealtimeData,
   saveRealtime,
   getAllRealtime,
   getAllRealtimeWithImage,
+  getAllRealtimeIncludingMetadata,
   getRealtimeById,
   getAllRealtimeByDate,
   deleteRealtimeByID,
@@ -14,7 +16,7 @@ const {
   getLastDataRealtime,
   startMonitoring,
   stopMonitoring,
-} = require("../../controllers/monitoring/newRealtimeController");
+} = require("../../controllers/monitoring/rtdb/newRealtimeController");
 
 router.post("/", upload.single("image"), async (req, res) => {
   try {
@@ -199,6 +201,56 @@ router.get("/images", async (req, res) => {
       status: "error",
       code: 500,
       message: "Failed to retrieve images",
+      error: err.message,
+    });
+  }
+});
+
+router.get("/metadatas", async (req, res) => {
+  try {
+    const data = await getAllRealtimeIncludingMetadata();
+
+    if (data.length === 0) {
+      return res.status(404).json({ message: "No metadata found" });
+    }
+
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Metadata retrieved successfully",
+      data: data,
+    });
+  } catch (err) {
+    console.error("Error retrieving metadata:", err);
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Failed to retrieve metadata",
+      error: err.message,
+    });
+  }
+});
+
+router.get("/restructure", async (req, res) => {
+  try {
+    const data = await restructureRealtimeData();
+
+    if (data.length === 0) {
+      return res.status(404).json({ message: "No data found" });
+    }
+
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Data restructured successfully",
+      data: data,
+    });
+  } catch (err) {
+    console.error("Error restructuring data:", err);
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Failed to restructure data",
       error: err.message,
     });
   }

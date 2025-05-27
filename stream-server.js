@@ -113,7 +113,7 @@ app.get("/capture", async (req, res) => {
   const ffmpeg = spawn("ffmpeg", [
     "-y",
     "-i",
-    "http://192.168.238.17/stream",
+    "http://192.168.298.17/stream",
     "-frames:v",
     "1",
     "-q:v",
