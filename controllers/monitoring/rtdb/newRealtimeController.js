@@ -114,12 +114,22 @@ async function getAllRealtimeByLatestData() {
 async function getAllRealtimeWithImage() {
   const snapshot = await rtdb.ref("realtime_monitoring").once("value");
   const val = snapshot.val();
-  if (!val) return [];
 
-  return Object.entries(val)
-    .filter(([, item]) => item.imageUrl)
-    .map(([id, item]) => ({ id, ...item }))
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (!Array.isArray(val)) return [];
+
+  const results = [];
+
+  for (const sessionGroup of val) {
+    if (!sessionGroup || typeof sessionGroup !== "object") continue;
+
+    for (const [id, item] of Object.entries(sessionGroup)) {
+      if (item.imageUrl && item.imageUrl.trim() !== "") {
+        results.push({ id, sessionId: item.sessionId, ...item });
+      }
+    }
+  }
+
+  return results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 async function getAllRealtimeIncludingMetadata() {
@@ -127,12 +137,19 @@ async function getAllRealtimeIncludingMetadata() {
   const val = snapshot.val();
   if (!val) return [];
 
-  return Object.entries(val)
-    .filter(
-      ([, item]) => item.metadata && Object.keys(item.metadata).length > 0
-    )
-    .map(([id, item]) => ({ id, ...item }))
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const results = [];
+
+  for (const [sessionId, entries] of Object.entries(val)) {
+    if (typeof entries === "object" && entries !== null) {
+      for (const [id, item] of Object.entries(entries)) {
+        if (item.metadata && Object.keys(item.metadata).length > 0) {
+          results.push({ id, sessionId, ...item });
+        }
+      }
+    }
+  }
+
+  return results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 async function getRealtimeById(id) {
