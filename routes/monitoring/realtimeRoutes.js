@@ -51,6 +51,11 @@ router.post("/", upload.single("image"), async (req, res) => {
     let metadata = null;
     const hasMetadata = metadataKeys.some((key) => req.body[key] !== undefined);
 
+    // Ambil rssi dan sessionStatus di luar metadata
+    const rssi = Math.max(0, parseInt(req.body.rssi, 10)) || 0;
+    const sessionStatus =
+      (req.body.sessionStatus || "").toUpperCase() === "ON" ? true : false;
+
     if (hasMetadata) {
       metadata = {
         ultrasonic: parseFloat(req.body.ultrasonic) || 0,
@@ -103,6 +108,8 @@ router.post("/", upload.single("image"), async (req, res) => {
       timestamp: new Date(),
       obstacle,
       takenWith,
+      rssi,
+      sessionStatus,
       ...(metadata ? { metadata } : {}),
     });
 
@@ -289,7 +296,6 @@ router.get("/stop-monitoring", async (req, res) => {
     res.status(500).json({ error: "Failed to stop monitoring" });
   }
 });
-
 
 router.get("/:id", async (req, res) => {
   try {

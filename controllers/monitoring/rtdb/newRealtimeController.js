@@ -53,6 +53,9 @@ async function saveRealtime(data) {
     metadata: data.metadata || {},
     obstacle: data.obstacle || false,
     createdAt: new Date().toISOString(),
+    rssi: typeof data.rssi !== "undefined" ? data.rssi : 0,
+    sessionStatus:
+      typeof data.sessionStatus !== "undefined" ? data.sessionStatus : false,
   };
 
   const imageData = data.imageUrl
@@ -68,7 +71,6 @@ async function saveRealtime(data) {
 
   return { id: ref.key, ...baseData, ...imageData };
 }
-
 
 async function getLastDataRealtime() {
   const snapshot = await rtdb
@@ -247,10 +249,8 @@ async function startMonitoring() {
 
   const newSessionId = lastSessionId + 1;
 
-  // Buat session baru kosong (tanpa isi) di realtime_monitoring/{newSessionId}
   await rtdb.ref(`realtime_monitoring/${newSessionId}`).set({});
 
-  // Update current_session
   await rtdb.ref("current_session").set(newSessionId);
 
   return { sessionId: newSessionId };
