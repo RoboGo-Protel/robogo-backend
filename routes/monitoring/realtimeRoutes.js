@@ -52,7 +52,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     const hasMetadata = metadataKeys.some((key) => req.body[key] !== undefined);
 
     // Ambil rssi dan sessionStatus di luar metadata
-    const rssi = Math.max(0, parseInt(req.body.rssi, 10)) || 0;
+    const rssi = parseInt(req.body.rssi, 10) || 0;
     const sessionStatus =
       (req.body.sessionStatus || "").toUpperCase() === "ON" ? true : false;
 

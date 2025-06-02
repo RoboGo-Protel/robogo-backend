@@ -116,20 +116,20 @@ async function getAllRealtimeByLatestData() {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
+// Get all realtime data that contains imageUrl, flattened from all sessions
 async function getAllRealtimeWithImage() {
   const snapshot = await rtdb.ref("realtime_monitoring").once("value");
   const val = snapshot.val();
-
-  if (!Array.isArray(val)) return [];
+  if (!val) return [];
 
   const results = [];
 
-  for (const sessionGroup of val) {
-    if (!sessionGroup || typeof sessionGroup !== "object") continue;
-
-    for (const [id, item] of Object.entries(sessionGroup)) {
-      if (item.imageUrl && item.imageUrl.trim() !== "") {
-        results.push({ id, sessionId: item.sessionId, ...item });
+  for (const [sessionId, entries] of Object.entries(val)) {
+    if (typeof entries === "object" && entries !== null) {
+      for (const [id, item] of Object.entries(entries)) {
+        if (item.imageUrl && item.imageUrl.trim() !== "") {
+          results.push({ id, sessionId, ...item });
+        }
       }
     }
   }

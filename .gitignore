@@ -2,5 +2,6 @@ node_modules
 .env
 public/
 logs/
-firebase/*.json
+controllers/serviceDatabase.json
+controllers/serviceStorage.json
 ecosystem.config.js

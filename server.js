@@ -21,6 +21,7 @@ const { streamHandler } = require("./routes/monitoring/cameraRoutes");
 const captureRoutes = require("./routes/monitoring/captureRoutes");
 const galleryRoutes = require("./routes/reports/v2/galleryRoutes");
 const obstacleAnalyzerRoutes = require("./routes/analyze/obstacleRoutes");
+const deviceRoutes = require("./routes/others/deviceRoutes");
 
 const app = express();
 const PORT = 4000;
@@ -90,6 +91,7 @@ v1.use("/monitoring/camera-stream", streamHandler);
 v1.use("/monitoring/capture", captureRoutes);
 v1.use("/monitoring/realtime", realtimeRoutes);
 v1.use("/analyze/obstacle", obstacleAnalyzerRoutes);
+v1.use("/others/devices", deviceRoutes);
 
 app.use("/api/v1", v1);
 
