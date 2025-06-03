@@ -1,6 +1,19 @@
-const { rtdb } = require("../../database");
+const { rtdb, firestore } = require("../../database");
 const storage = require("../../storage");
 const { v4: uuidv4 } = require("uuid");
+
+function calculateAlertLevel(distance) {
+  if (typeof distance === "number") {
+    if (distance < 10) {
+      return "High";
+    } else if (distance >= 10 && distance <= 20) {
+      return "Medium";
+    } else {
+      return "Safe";
+    }
+  }
+  return "Unknown";
+}
 
 async function restructureRealtimeData() {
   const oldRef = rtdb.ref("realtime_monitoring");
@@ -37,9 +50,16 @@ async function restructureRealtimeData() {
 
 async function saveRealtime(data) {
   const currentSessionSnap = await rtdb.ref("current_session").once("value");
-  const sessionId = currentSessionSnap.val();
+  let sessionId = currentSessionSnap.val();
 
-  if (!sessionId || typeof sessionId !== "number" || sessionId < 1) {
+  sessionId = Number(sessionId);
+
+  if (
+    !sessionId ||
+    typeof sessionId !== "number" ||
+    sessionId < 1 ||
+    isNaN(sessionId)
+  ) {
     throw new Error(
       "Invalid or missing current_session value in the database."
     );
@@ -256,11 +276,195 @@ async function startMonitoring() {
   return { sessionId: newSessionId };
 }
 
-
 async function stopMonitoring() {
+  // Ambil sessionId sebelum di-set -1
   const currentSessionRef = rtdb.ref("current_session");
-  await currentSessionRef.set(-1);
-  return { stopped: true };
+  const currentSessionSnap = await currentSessionRef.once("value");
+  let sessionId = currentSessionSnap.val();
+  sessionId = Number(sessionId);
+
+  if (
+    !sessionId ||
+    typeof sessionId !== "number" ||
+    sessionId < 1 ||
+    isNaN(sessionId)
+  ) {
+    // Set current_session ke 0 jika tidak valid, dan return pesan tidak ada session aktif
+    await currentSessionRef.set(0);
+    return {
+      stopped: false,
+      success: false,
+      message: "No active session to stop.",
+      sessionId: 0,
+      date: new Date().toISOString().split("T")[0],
+      importedReport: {
+        ultrasonic_logs: {
+          totalData: 0,
+          success: false,
+          message: "No active session to stop.",
+        },
+        imu_logs: {
+          totalData: 0,
+          success: false,
+          message: "No active session to stop.",
+        },
+      },
+    };
+  }
+
+  // Ambil semua data dari RTDB untuk session ini
+  const sessionDataSnap = await rtdb
+    .ref(`realtime_monitoring/${sessionId}`)
+    .once("value");
+  const sessionData = sessionDataSnap.val();
+  let importedUltrasonic = 0;
+  let importedIMU = 0;
+  let ultrasonicSuccess = true;
+  let ultrasonicMessage = "";
+  let imuSuccess = true;
+  let imuMessage = "";
+
+  if (sessionData && typeof sessionData === "object") {
+    const batch = firestore.batch();
+    try {
+      for (const [id, entry] of Object.entries(sessionData)) {
+        // --- ULTRASONIC LOGS ---
+        const docRefUltrasonic = firestore.collection("ultrasonic_logs").doc();
+        const alertLevel = calculateAlertLevel(
+          entry.metadata &&
+            typeof entry.metadata.distances?.distTotal === "number"
+            ? entry.metadata.distances.distTotal
+            : null
+        );
+        const createdAt = entry.createdAt
+          ? new Date(entry.createdAt)
+          : new Date();
+        const distance =
+          entry.metadata &&
+          typeof entry.metadata.distances?.distTotal === "number"
+            ? entry.metadata.distances.distTotal
+            : null;
+        const ultrasonicData = {
+          timestamp: createdAt, // Exactly matches createdAt
+          sessionId: sessionId,
+          distance: distance === null ? 0 : distance,
+          alertLevel,
+          imageId: entry.imageUrl || null,
+          createdAt,
+          date: createdAt.toISOString().split("T")[0],
+        };
+        // Deduplication for ultrasonic_logs
+        const existingUltrasonic = await firestore
+          .collection("ultrasonic_logs")
+          .where("sessionId", "==", sessionId)
+          .where("timestamp", "==", createdAt)
+          .where("distance", "==", distance === null ? 0 : distance)
+          .where("imageId", "==", entry.imageUrl || null)
+          .get();
+        if (existingUltrasonic.empty) {
+          batch.set(docRefUltrasonic, ultrasonicData);
+          importedUltrasonic++;
+        }
+
+        // --- IMU LOGS ---
+        if (entry.sessionId === sessionId && entry.metadata) {
+          const docRefIMU = firestore.collection("imu_logs").doc();
+          const m = entry.metadata;
+          const imuData = {
+            timestamp: entry.timestamp ? new Date(entry.timestamp) : createdAt,
+            sessionId: sessionId,
+            accelerationMagnitude: m.accelerationMagnitude ?? null,
+            direction: m.direction ?? null,
+            distanceTraveled: m.distanceTraveled ?? null,
+            heading: m.heading ?? null,
+            linearAcceleration: m.linearAcceleration ?? null,
+            pitch: m.pitch ?? null,
+            roll: m.roll ?? null,
+            rotationRate: m.rotationRate ?? null,
+            ultrasonic: m.ultrasonic ?? null,
+            yaw: m.yaw ?? null,
+            distances: m.distances ?? null,
+            magnetometer: m.magnetometer ?? null,
+            position: m.position ?? null,
+            velocity: m.velocity ?? null,
+            createdAt,
+            date: createdAt.toISOString().split("T")[0],
+          };
+          // Deduplication for imu_logs
+          const existingIMU = await firestore
+            .collection("imu_logs")
+            .where("sessionId", "==", sessionId)
+            .where("timestamp", "==", imuData.timestamp)
+            .where("heading", "==", imuData.heading)
+            .where("direction", "==", imuData.direction)
+            .get();
+          if (existingIMU.empty) {
+            batch.set(docRefIMU, imuData);
+            importedIMU++;
+          }
+        }
+      }
+      if (importedUltrasonic > 0 || importedIMU > 0) {
+        await batch.commit();
+      }
+      ultrasonicSuccess = true;
+      ultrasonicMessage =
+        importedUltrasonic > 0
+          ? `Successfully imported ${importedUltrasonic} ultrasonic log(s).`
+          : "No new ultrasonic logs to import.";
+      imuSuccess = true;
+      imuMessage =
+        importedIMU > 0
+          ? `Successfully imported ${importedIMU} IMU log(s).`
+          : "No new IMU logs to import.";
+    } catch (e) {
+      ultrasonicSuccess = false;
+      ultrasonicMessage = e.message || "Failed to import ultrasonic_logs.";
+      imuSuccess = false;
+      imuMessage = e.message || "Failed to import imu_logs.";
+    }
+  }
+
+  // Set current_session ke 0
+  await currentSessionRef.set(0);
+  // Ambil tanggal hari ini (atau dari data jika ada data, pakai tanggal createdAt entry pertama)
+  let dateStr = null;
+  function toJakartaDateString(dateObj) {
+    // Convert to Asia/Jakarta (UTC+7) and return YYYY-MM-DD
+    const jakartaOffset = 7 * 60; // minutes
+    const utc = dateObj.getTime() + dateObj.getTimezoneOffset() * 60000;
+    const jakarta = new Date(utc + jakartaOffset * 60000);
+    return jakarta.toISOString().split("T")[0];
+  }
+  if (sessionData && typeof sessionData === "object") {
+    const firstEntry = Object.values(sessionData)[0];
+    let dateSource = firstEntry?.createdAt || new Date();
+    if (typeof dateSource === "string" || dateSource instanceof String) {
+      dateSource = new Date(dateSource);
+    }
+    dateStr = toJakartaDateString(dateSource);
+  } else {
+    dateStr = toJakartaDateString(new Date());
+  }
+  return {
+    stopped: true,
+    sessionId,
+    date: dateStr,
+    importedReport: {
+      ultrasonic_logs: {
+        totalData: importedUltrasonic,
+        success: ultrasonicSuccess,
+        duplication: importedUltrasonic === 0 ? true : false,
+        message: ultrasonicMessage,
+      },
+      imu_logs: {
+        totalData: importedIMU,
+        success: imuSuccess,
+        duplication: importedIMU === 0 ? true : false,
+        message: imuMessage,
+      },
+    },
+  };
 }
 
 module.exports = {

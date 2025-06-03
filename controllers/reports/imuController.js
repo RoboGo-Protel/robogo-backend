@@ -158,6 +158,53 @@ async function getSummariesByDate(date) {
   };
 }
 
+async function getSummariesByDateAndSessionId(date, sessionId) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("imu_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<", endOfDay)
+    .where("sessionId", "==", Number(sessionId))
+    .orderBy("timestamp", "asc")
+    .get();
+
+  let total_heading = 0;
+  let heading_differences = 0;
+  let max_turn_angle = 0;
+  let count = 0;
+
+  let previous_heading = null;
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data?.heading == null) return;
+
+    const heading = data.heading;
+    total_heading += heading;
+    count++;
+
+    if (previous_heading != null) {
+      const diff = Math.abs(heading - previous_heading);
+      heading_differences += diff;
+      max_turn_angle = Math.max(max_turn_angle, diff);
+    }
+
+    previous_heading = heading;
+  });
+
+  return {
+    average_heading: count > 0 ? total_heading / count : 0,
+    heading_range: count > 1 ? heading_differences / (count - 1) : 0,
+    total_orientation_changes: count > 1 ? count - 1 : 0,
+    max_turn_angle: max_turn_angle,
+  };
+}
+
 async function getAllIMULogs() {
   const snapshot = await firestore
     .collection("imu_logs")
@@ -288,12 +335,20 @@ async function getAvailableDatesWithSessions() {
     const data = doc.data();
     if (!data || !data.timestamp || !data.sessionId) return;
 
-    const date = data.timestamp.toDate().toISOString().split("T")[0];
+    // Konversi timestamp ke tanggal lokal Asia/Jakarta (YYYY-MM-DD)
+    const utcDate = data.timestamp.toDate();
+    const jakartaOffset = 7 * 60;
+    const local = new Date(
+      utcDate.getTime() + (jakartaOffset - utcDate.getTimezoneOffset()) * 60000
+    );
+    const year = local.getFullYear();
+    const month = String(local.getMonth() + 1).padStart(2, "0");
+    const day = String(local.getDate()).padStart(2, "0");
+    const date = `${year}-${month}-${day}`;
 
     if (!dateSessionMap.has(date)) {
       dateSessionMap.set(date, new Set());
     }
-
     dateSessionMap.get(date).add(data.sessionId);
   });
 
@@ -364,6 +419,7 @@ module.exports = {
   saveIMULog,
   getAllSummaries,
   getSummariesByDate,
+  getSummariesByDateAndSessionId,
   getAllIMULogs,
   getIMULogById,
   getIMULogsByDate,

@@ -15,7 +15,7 @@ const {
   deleteIMULogByID,
   deleteIMULogByDate,
   deleteIMULogByDateAndSessionId,
-} = require("../../controllers/reports/rtdb/newIMUController");
+} = require("../../controllers/reports/imuController");
 
 router.post("/", async (req, res) => {
   try {

@@ -17,7 +17,7 @@ async function saveUltrasonicLog({
 
   const data = {
     timestamp: timestamp ? new Date(timestamp) : new Date(),
-    sessionId: sessionId,
+    sessionId: sessionId !== null ? Number(sessionId) : null, // pastikan number
     distance: parseFloat(distance),
     alertLevel,
     imageId: imageId || null,
@@ -84,25 +84,77 @@ async function getSummariesByDate(date) {
   let totalObstacles = 0;
   let totalDistance = 0;
   let closestDistance = null;
+  let countedDistance = 0;
 
   snapshot.forEach((doc) => {
     const data = doc.data();
     if (!data || data.distance == null) return;
 
-    totalImages++;
+    if (data.imageId !== null) {
+      totalImages++;
+    }
 
     if (data.alertLevel === "Medium" || data.alertLevel === "High") {
       totalObstacles++;
     }
 
     totalDistance += data.distance;
+    countedDistance++;
 
     if (closestDistance === null || data.distance < closestDistance) {
       closestDistance = data.distance;
     }
   });
 
-  const averageDistance = totalImages > 0 ? totalDistance / totalImages : 0;
+  const averageDistance =
+    countedDistance > 0 ? totalDistance / countedDistance : 0;
+
+  return {
+    totalImages,
+    totalObstacles,
+    closestDistance,
+    averageDistance: parseFloat(averageDistance.toFixed(2)),
+  };
+}
+
+async function getSummariesByDateAndSessionId(date, sessionId) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await firestore
+    .collection("ultrasonic_logs")
+    .where("timestamp", ">=", startOfDay)
+    .where("timestamp", "<=", endOfDay)
+    .where("sessionId", "==", Number(sessionId))
+    .orderBy("timestamp", "asc")
+    .get();
+
+  let totalImages = 0;
+  let totalObstacles = 0;
+  let totalDistance = 0;
+  let closestDistance = null;
+  let countedDistance = 0;
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    totalImages++;
+    if (data && data.distance != null) {
+      if (data.alertLevel === "Medium" || data.alertLevel === "High") {
+        totalObstacles++;
+      }
+      totalDistance += data.distance;
+      countedDistance++;
+      if (closestDistance === null || data.distance < closestDistance) {
+        closestDistance = data.distance;
+      }
+    }
+  });
+
+  const averageDistance =
+    countedDistance > 0 ? totalDistance / countedDistance : 0;
 
   return {
     totalImages,
@@ -200,8 +252,16 @@ async function getAvailableDates() {
   const dates = new Set();
   snapshot.forEach((doc) => {
     const data = doc.data();
-    if (data && data.timestamp) {
-      const date = data.timestamp.toDate().toISOString().split("T")[0];
+    if (data && data.timestamp && data.sessionId != null) {
+      // Ambil tanggal lokal Asia/Jakarta dari timestamp UTC
+      const utcDate = data.timestamp.toDate();
+      // Konversi ke Asia/Jakarta manual agar tidak tergantung OS
+      const jakartaOffset = 7 * 60; // Asia/Jakarta UTC+7 dalam menit
+      const local = new Date(
+        utcDate.getTime() +
+          (jakartaOffset - utcDate.getTimezoneOffset()) * 60000
+      );
+      const date = local.toISOString().split("T")[0];
       dates.add(date);
     }
   });
@@ -246,12 +306,20 @@ async function getAvailableDatesWithSessions() {
     const data = doc.data();
     if (!data || !data.timestamp || !data.sessionId) return;
 
-    const date = data.timestamp.toDate().toISOString().split("T")[0];
+    // Konversi timestamp ke tanggal lokal Asia/Jakarta (YYYY-MM-DD)
+    const utcDate = data.timestamp.toDate();
+    const jakartaOffset = 7 * 60;
+    const local = new Date(
+      utcDate.getTime() + (jakartaOffset - utcDate.getTimezoneOffset()) * 60000
+    );
+    const year = local.getFullYear();
+    const month = String(local.getMonth() + 1).padStart(2, "0");
+    const day = String(local.getDate()).padStart(2, "0");
+    const date = `${year}-${month}-${day}`;
 
     if (!dateSessionMap.has(date)) {
       dateSessionMap.set(date, new Set());
     }
-
     dateSessionMap.get(date).add(data.sessionId);
   });
 
@@ -335,6 +403,7 @@ module.exports = {
   saveUltrasonicLog,
   getAllSummaries,
   getSummariesByDate,
+  getSummariesByDateAndSessionId,
   getAllUltrasonicLogs,
   getUltrasonicLogsByDate,
   getUltrasonicLogById,
