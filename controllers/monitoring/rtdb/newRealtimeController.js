@@ -136,7 +136,7 @@ async function getAllRealtimeByLatestData() {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
-// Get all realtime data that contains imageUrl, flattened from all sessions
+
 async function getAllRealtimeWithImage() {
   const snapshot = await rtdb.ref("realtime_monitoring").once("value");
   const val = snapshot.val();
@@ -277,7 +277,6 @@ async function startMonitoring() {
 }
 
 async function stopMonitoring() {
-  // Ambil sessionId sebelum di-set -1
   const currentSessionRef = rtdb.ref("current_session");
   const currentSessionSnap = await currentSessionRef.once("value");
   let sessionId = currentSessionSnap.val();
@@ -289,7 +288,6 @@ async function stopMonitoring() {
     sessionId < 1 ||
     isNaN(sessionId)
   ) {
-    // Set current_session ke 0 jika tidak valid, dan return pesan tidak ada session aktif
     await currentSessionRef.set(0);
     return {
       stopped: false,
@@ -312,7 +310,6 @@ async function stopMonitoring() {
     };
   }
 
-  // Ambil semua data dari RTDB untuk session ini
   const sessionDataSnap = await rtdb
     .ref(`realtime_monitoring/${sessionId}`)
     .once("value");
@@ -328,7 +325,6 @@ async function stopMonitoring() {
     const batch = firestore.batch();
     try {
       for (const [id, entry] of Object.entries(sessionData)) {
-        // --- ULTRASONIC LOGS ---
         const docRefUltrasonic = firestore.collection("ultrasonic_logs").doc();
         const alertLevel = calculateAlertLevel(
           entry.metadata &&
@@ -345,7 +341,7 @@ async function stopMonitoring() {
             ? entry.metadata.distances.distTotal
             : null;
         const ultrasonicData = {
-          timestamp: createdAt, // Exactly matches createdAt
+          timestamp: createdAt,
           sessionId: sessionId,
           distance: distance === null ? 0 : distance,
           alertLevel,
@@ -353,7 +349,7 @@ async function stopMonitoring() {
           createdAt,
           date: createdAt.toISOString().split("T")[0],
         };
-        // Deduplication for ultrasonic_logs
+
         const existingUltrasonic = await firestore
           .collection("ultrasonic_logs")
           .where("sessionId", "==", sessionId)
@@ -366,7 +362,6 @@ async function stopMonitoring() {
           importedUltrasonic++;
         }
 
-        // --- IMU LOGS ---
         if (entry.sessionId === sessionId && entry.metadata) {
           const docRefIMU = firestore.collection("imu_logs").doc();
           const m = entry.metadata;
@@ -390,7 +385,7 @@ async function stopMonitoring() {
             createdAt,
             date: createdAt.toISOString().split("T")[0],
           };
-          // Deduplication for imu_logs
+
           const existingIMU = await firestore
             .collection("imu_logs")
             .where("sessionId", "==", sessionId)
@@ -425,13 +420,11 @@ async function stopMonitoring() {
     }
   }
 
-  // Set current_session ke 0
   await currentSessionRef.set(0);
-  // Ambil tanggal hari ini (atau dari data jika ada data, pakai tanggal createdAt entry pertama)
+
   let dateStr = null;
   function toJakartaDateString(dateObj) {
-    // Convert to Asia/Jakarta (UTC+7) and return YYYY-MM-DD
-    const jakartaOffset = 7 * 60; // minutes
+    const jakartaOffset = 7 * 60;
     const utc = dateObj.getTime() + dateObj.getTimezoneOffset() * 60000;
     const jakarta = new Date(utc + jakartaOffset * 60000);
     return jakarta.toISOString().split("T")[0];

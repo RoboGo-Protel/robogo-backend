@@ -135,10 +135,35 @@ async function getUnassignedDevices(req, res) {
   }
 }
 
+// Function to get devices by userId (for internal use)
+async function getDevicesByUserId(userId) {
+  try {
+    const snapshot = await firestore
+      .collection("devices")
+      .where("user_id", "==", userId)
+      .get();
+
+    const devices = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        user_id: data.user_id || null,
+        deviceName: data.deviceName || null,
+        status: data.status || null,
+      };
+    });
+
+    return devices;
+  } catch (error) {
+    throw new Error(`Failed to get devices for user ${userId}: ${error.message}`);
+  }
+}
+
 module.exports = {
   getAllDevices,
   addDevice,
   assignUserToDevice,
   getDevicesByUser,
   getUnassignedDevices,
+  getDevicesByUserId, // Exporting the internal function
 };

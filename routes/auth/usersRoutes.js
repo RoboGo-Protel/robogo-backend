@@ -4,93 +4,151 @@ const {
   registerUser,
   loginUser,
   getUserData,
-} = require("../../controllers/auth/usersController");
-const authenticateToken = require("../../middleware/authMiddleware");
+  requestPasswordReset,
+  resetPassword,
+  googleAuth,
+} = require('../../controllers/auth/usersController');
+const authenticateToken = require('../../middleware/authMiddleware');
 
-router.post("/register", async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const result = await registerUser(req.body);
     if (!result) {
       return res.status(400).json({
-        status: "error",
+        status: 'error',
         code: 400,
-        message: "Failed to register user",
+        message: 'Failed to register user',
       });
     }
     return res.status(201).json({
-      status: "success",
+      status: 'success',
       code: 201,
-      message: "User registered successfully",
+      message: 'User registered successfully',
       data: { id: result },
     });
   } catch (err) {
     return res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
       message: err.message,
     });
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const result = await loginUser(req.body);
     if (!result) {
       return res.status(401).json({
-        status: "error",
+        status: 'error',
         code: 401,
-        message: "Invalid credentials",
+        message: 'Invalid credentials',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Login successful",
+      message: 'Login successful',
       data: result,
     });
   } catch (err) {
     res.status(401).json({
-      status: "error",
+      status: 'error',
       code: 401,
       message: err.message,
     });
   }
 });
 
-router.post("/logout", (req, res) => {
-  res.clearCookie("robogo_token", { path: "/" });
-  res.clearCookie("next-auth.session-token", { path: "/" });
-  res.clearCookie("next-auth.csrf-token", { path: "/" });
-  res.clearCookie("next-auth.callback-url", { path: "/" });
+router.post('/logout', (req, res) => {
+  res.clearCookie('robogo_token', { path: '/' });
+  res.clearCookie('next-auth.session-token', { path: '/' });
+  res.clearCookie('next-auth.csrf-token', { path: '/' });
+  res.clearCookie('next-auth.callback-url', { path: '/' });
 
   return res.status(200).json({
-    status: "success",
+    status: 'success',
     code: 200,
-    message: "Logout successful",
-    redirect: "/login",
+    message: 'Logout successful',
+    redirect: '/login',
   });
 });
 
-router.get("/me", authenticateToken, async (req, res) => {
+router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await getUserData(req.user.userId);
     if (!user) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "User not found",
+        message: 'User not found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "User data fetched successfully",
+      message: 'User data fetched successfully',
       data: user,
     });
   } catch (err) {
     res.status(401).json({
-      status: "error",
+      status: 'error',
       code: 401,
+      message: err.message,
+    });
+  }
+});
+
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const result = await requestPasswordReset(req.body);
+    res.status(200).json({
+      status: 'success',
+      code: 200,
+      message: result.message,
+      data: { email: result.email },
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'error',
+      code: 400,
+      message: err.message,
+    });
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const result = await resetPassword(req.body);
+    res.status(200).json({
+      status: 'success',
+      code: 200,
+      message: result.message,
+      data: { userId: result.userId },
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'error',
+      code: 400,
+      message: err.message,
+    });
+  }
+});
+
+router.post('/google', async (req, res) => {
+  try {
+    const result = await googleAuth(req.body);
+    res.status(200).json({
+      status: 'success',
+      code: 200,
+      message: 'Google authentication successful',
+      token: result.token,
+      user: result.user,
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'error',
+      code: 400,
       message: err.message,
     });
   }
