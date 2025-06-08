@@ -155,7 +155,7 @@ async function requestPasswordReset({ email }) {
 
   const emailContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background: linear-gradient(135deg, #3BD5FF 0%, #367AF2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+      <div style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
         <h1 style="color: white; margin: 0; font-size: 28px;">RoboGo</h1>
         <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Robot Gorong-Gorong Control System</p>
       </div>
@@ -166,11 +166,11 @@ async function requestPasswordReset({ email }) {
         <p style="color: #666; line-height: 1.6;">We received a request to reset your password for your RoboGo account. Click the button below to create a new password:</p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetUrl}" style="background: linear-gradient(135deg, #3BD5FF 0%, #367AF2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Reset Password</a>
+          <a href="${resetUrl}" style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Reset Password</a>
         </div>
         
         <p style="color: #666; line-height: 1.6;">If you can't click the button, copy and paste this link into your browser:</p>
-        <p style="color: #367AF2; word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace;">${resetUrl}</p>
+        <p style="color: #60a5fa; word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace;">${resetUrl}</p>
         
         <p style="color: #666; line-height: 1.6;">This link will expire in 1 hour for security reasons.</p>
         
