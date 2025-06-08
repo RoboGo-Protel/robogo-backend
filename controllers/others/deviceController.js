@@ -135,7 +135,7 @@ async function getUnassignedDevices(req, res) {
   }
 }
 
-// Function to get devices by userId (for internal use)
+
 async function getDevicesByUserId(userId) {
   try {
     const snapshot = await firestore
@@ -165,5 +165,5 @@ module.exports = {
   assignUserToDevice,
   getDevicesByUser,
   getUnassignedDevices,
-  getDevicesByUserId, // Exporting the internal function
+  getDevicesByUserId,
 };

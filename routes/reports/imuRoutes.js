@@ -219,20 +219,19 @@ router.get("/summaries/date/:date/session/:sessionId", async (req, res) => {
   }
 
   try {
-    // Panggil fungsi dengan parameter yang sesuai
     const summary = await getSummariesByDateAndSessionId(dateStr, sessionId);
 
     if (!summary) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No summaries found for the given date and session ID",
+        message: 'No summaries found for the given date and session ID',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Summaries retrieved successfully",
+      message: 'Summaries retrieved successfully',
       data: summary,
     });
   } catch (err) {

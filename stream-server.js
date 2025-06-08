@@ -124,12 +124,12 @@ app.get("/capture", async (req, res) => {
   ]);
 
   let timeout = setTimeout(() => {
-    ffmpeg.kill("SIGKILL");
-    console.error("❌ ffmpeg timeout, process killed");
+    ffmpeg.kill('SIGKILL');
+    console.error('❌ ffmpeg timeout, process killed');
     return res
       .status(504)
-      .json({ success: false, error: "FFmpeg timeout (no frame received)" });
-  }, 90000); // 90 seconds timeout
+      .json({ success: false, error: 'FFmpeg timeout (no frame received)' });
+  }, 90000); 
 
   ffmpeg.stderr.on("data", (data) => {
     console.log("ffmpeg stderr:", data.toString());

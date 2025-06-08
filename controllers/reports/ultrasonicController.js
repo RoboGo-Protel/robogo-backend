@@ -13,11 +13,11 @@ async function saveUltrasonicLog({
   imageId = null,
 }) {
   const alertLevel = calculateAlertLevel(distance);
-  const ref = firestore.collection("ultrasonic_logs").doc();
+  const ref = firestore.collection('ultrasonic_logs').doc();
 
   const data = {
     timestamp: timestamp ? new Date(timestamp) : new Date(),
-    sessionId: sessionId !== null ? Number(sessionId) : null, // pastikan number
+    sessionId: sessionId !== null ? Number(sessionId) : null,
     distance: parseFloat(distance),
     alertLevel,
     imageId: imageId || null,
@@ -30,8 +30,8 @@ async function saveUltrasonicLog({
 
 async function getAllSummaries() {
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .orderBy("timestamp", "asc")
+    .collection('ultrasonic_logs')
+    .orderBy('timestamp', 'asc')
     .get();
 
   let totalImages = 0;
@@ -45,7 +45,7 @@ async function getAllSummaries() {
 
     totalImages++;
 
-    if (data.alertLevel === "Medium" || data.alertLevel === "High") {
+    if (data.alertLevel === 'Medium' || data.alertLevel === 'High') {
       totalObstacles++;
     }
 
@@ -74,10 +74,10 @@ async function getSummariesByDate(date) {
   endOfDay.setHours(23, 59, 59, 999);
 
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
-    .orderBy("timestamp", "asc")
+    .collection('ultrasonic_logs')
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
+    .orderBy('timestamp', 'asc')
     .get();
 
   let totalImages = 0;
@@ -94,7 +94,7 @@ async function getSummariesByDate(date) {
       totalImages++;
     }
 
-    if (data.alertLevel === "Medium" || data.alertLevel === "High") {
+    if (data.alertLevel === 'Medium' || data.alertLevel === 'High') {
       totalObstacles++;
     }
 
@@ -125,11 +125,11 @@ async function getSummariesByDateAndSessionId(date, sessionId) {
   endOfDay.setHours(23, 59, 59, 999);
 
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
-    .where("sessionId", "==", Number(sessionId))
-    .orderBy("timestamp", "asc")
+    .collection('ultrasonic_logs')
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
+    .where('sessionId', '==', Number(sessionId))
+    .orderBy('timestamp', 'asc')
     .get();
 
   let totalImages = 0;
@@ -142,7 +142,7 @@ async function getSummariesByDateAndSessionId(date, sessionId) {
     const data = doc.data();
     totalImages++;
     if (data && data.distance != null) {
-      if (data.alertLevel === "Medium" || data.alertLevel === "High") {
+      if (data.alertLevel === 'Medium' || data.alertLevel === 'High') {
         totalObstacles++;
       }
       totalDistance += data.distance;
@@ -166,8 +166,8 @@ async function getSummariesByDateAndSessionId(date, sessionId) {
 
 async function getAllUltrasonicLogs() {
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .orderBy("timestamp", "asc")
+    .collection('ultrasonic_logs')
+    .orderBy('timestamp', 'asc')
     .get();
 
   return snapshot.docs.map((doc) => {
@@ -182,7 +182,7 @@ async function getAllUltrasonicLogs() {
 }
 
 async function getUltrasonicLogById(id) {
-  const ref = await firestore.collection("ultrasonic_logs").doc(id);
+  const ref = await firestore.collection('ultrasonic_logs').doc(id);
   const doc = await ref.get();
   if (!doc.exists) return null;
   const data = doc.data();
@@ -202,10 +202,10 @@ async function getUltrasonicLogsByDate(date) {
   endOfDay.setHours(23, 59, 59, 999);
 
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
-    .orderBy("timestamp", "asc")
+    .collection('ultrasonic_logs')
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
+    .orderBy('timestamp', 'asc')
     .get();
 
   return snapshot.docs.map((doc) => {
@@ -222,14 +222,14 @@ async function getUltrasonicLogsByDate(date) {
 async function getUltrasonicLogsByDateAndSessionId(
   startOfDay,
   endOfDay,
-  sessionId
+  sessionId,
 ) {
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
-    .where("sessionId", "==", Number(sessionId))
-    .orderBy("timestamp", "asc")
+    .collection('ultrasonic_logs')
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
+    .where('sessionId', '==', Number(sessionId))
+    .orderBy('timestamp', 'asc')
     .get();
 
   return snapshot.docs.map((doc) => {
@@ -245,23 +245,22 @@ async function getUltrasonicLogsByDateAndSessionId(
 
 async function getAvailableDates() {
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .orderBy("timestamp", "asc")
+    .collection('ultrasonic_logs')
+    .orderBy('timestamp', 'asc')
     .get();
 
   const dates = new Set();
   snapshot.forEach((doc) => {
     const data = doc.data();
     if (data && data.timestamp && data.sessionId != null) {
-      // Ambil tanggal lokal Asia/Jakarta dari timestamp UTC
       const utcDate = data.timestamp.toDate();
-      // Konversi ke Asia/Jakarta manual agar tidak tergantung OS
-      const jakartaOffset = 7 * 60; // Asia/Jakarta UTC+7 dalam menit
+
+      const jakartaOffset = 7 * 60;
       const local = new Date(
         utcDate.getTime() +
-          (jakartaOffset - utcDate.getTimezoneOffset()) * 60000
+          (jakartaOffset - utcDate.getTimezoneOffset()) * 60000,
       );
-      const date = local.toISOString().split("T")[0];
+      const date = local.toISOString().split('T')[0];
       dates.add(date);
     }
   });
@@ -277,10 +276,10 @@ async function getAvailableSessionIdsFromDate(date) {
   endOfDay.setHours(23, 59, 59, 999);
 
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
-    .orderBy("sessionId")
+    .collection('ultrasonic_logs')
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
+    .orderBy('sessionId')
     .get();
 
   const sessionIds = new Set();
@@ -296,8 +295,8 @@ async function getAvailableSessionIdsFromDate(date) {
 
 async function getAvailableDatesWithSessions() {
   const snapshot = await firestore
-    .collection("ultrasonic_logs")
-    .orderBy("timestamp", "asc")
+    .collection('ultrasonic_logs')
+    .orderBy('timestamp', 'asc')
     .get();
 
   const dateSessionMap = new Map();
@@ -306,15 +305,14 @@ async function getAvailableDatesWithSessions() {
     const data = doc.data();
     if (!data || !data.timestamp || !data.sessionId) return;
 
-    // Konversi timestamp ke tanggal lokal Asia/Jakarta (YYYY-MM-DD)
     const utcDate = data.timestamp.toDate();
     const jakartaOffset = 7 * 60;
     const local = new Date(
-      utcDate.getTime() + (jakartaOffset - utcDate.getTimezoneOffset()) * 60000
+      utcDate.getTime() + (jakartaOffset - utcDate.getTimezoneOffset()) * 60000,
     );
     const year = local.getFullYear();
-    const month = String(local.getMonth() + 1).padStart(2, "0");
-    const day = String(local.getDate()).padStart(2, "0");
+    const month = String(local.getMonth() + 1).padStart(2, '0');
+    const day = String(local.getDate()).padStart(2, '0');
     const date = `${year}-${month}-${day}`;
 
     if (!dateSessionMap.has(date)) {
@@ -325,10 +323,10 @@ async function getAvailableDatesWithSessions() {
 
   const result = Array.from(dateSessionMap.entries())
     .map(([date, sessionSet]) => ({
-      label: new Date(date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
+      label: new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
       }),
       value: date,
       sessions: Array.from(sessionSet)

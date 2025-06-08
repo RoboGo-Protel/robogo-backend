@@ -335,15 +335,14 @@ async function getAvailableDatesWithSessions() {
     const data = doc.data();
     if (!data || !data.timestamp || !data.sessionId) return;
 
-    // Konversi timestamp ke tanggal lokal Asia/Jakarta (YYYY-MM-DD)
     const utcDate = data.timestamp.toDate();
     const jakartaOffset = 7 * 60;
     const local = new Date(
-      utcDate.getTime() + (jakartaOffset - utcDate.getTimezoneOffset()) * 60000
+      utcDate.getTime() + (jakartaOffset - utcDate.getTimezoneOffset()) * 60000,
     );
     const year = local.getFullYear();
-    const month = String(local.getMonth() + 1).padStart(2, "0");
-    const day = String(local.getDate()).padStart(2, "0");
+    const month = String(local.getMonth() + 1).padStart(2, '0');
+    const day = String(local.getDate()).padStart(2, '0');
     const date = `${year}-${month}-${day}`;
 
     if (!dateSessionMap.has(date)) {

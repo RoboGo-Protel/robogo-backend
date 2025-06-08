@@ -72,7 +72,7 @@ async function saveIMULog({
 }
 
 async function getAllSummaries() {
-  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const snapshot = await rtdb.ref('realtime_monitoring').once('value');
   const val = snapshot.val();
 
   if (!val) {
@@ -84,10 +84,8 @@ async function getAllSummaries() {
     };
   }
 
-  // Flatten entries: ambil semua objek di dalam array val,
-  // kemudian ambil values dari masing-masing objek
   const entries = val
-    .filter((item) => item && typeof item === "object") // filter null dan yang bukan objek
+    .filter((item) => item && typeof item === 'object')
     .flatMap((obj) => Object.values(obj))
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
@@ -130,7 +128,7 @@ async function getSummariesByDate(date) {
   const endOfDay = new Date(date);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const snapshot = await rtdb.ref('realtime_monitoring').once('value');
   const val = snapshot.val();
 
   if (!val) {
@@ -142,9 +140,8 @@ async function getSummariesByDate(date) {
     };
   }
 
-  // Flatten entries (karena val adalah array yang berisi objek nested)
   const entries = val
-    .filter((item) => item && typeof item === "object") // buang null dan non-objek
+    .filter((item) => item && typeof item === 'object')
     .flatMap((obj) => Object.values(obj))
     .filter((entry) => {
       if (!entry.createdAt) return false;
@@ -152,7 +149,6 @@ async function getSummariesByDate(date) {
       return ts >= startOfDay && ts <= endOfDay;
     });
 
-  // Sort berdasarkan createdAt
   entries.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   let total_heading = 0;
@@ -196,7 +192,7 @@ async function getSummariesByDateAndSessionId(date, sessionId) {
 
   const snapshot = await rtdb
     .ref(`realtime_monitoring/${sessionId}`)
-    .once("value");
+    .once('value');
   const val = snapshot.val();
 
   if (!val) {
@@ -208,7 +204,6 @@ async function getSummariesByDateAndSessionId(date, sessionId) {
     };
   }
 
-  // Filter entries by date range
   const entries = Object.values(val).filter((entry) => {
     if (!entry.createdAt) return false;
     const ts = new Date(entry.createdAt);
@@ -224,7 +219,6 @@ async function getSummariesByDateAndSessionId(date, sessionId) {
     };
   }
 
-  // Sort entries by createdAt ascending
   entries.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   let total_heading = 0;
@@ -260,7 +254,7 @@ async function getSummariesByDateAndSessionId(date, sessionId) {
 }
 
 async function getAllIMULogs() {
-  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const snapshot = await rtdb.ref('realtime_monitoring').once('value');
   const val = snapshot.val();
   if (!val) return [];
 
@@ -279,14 +273,14 @@ async function getAllIMULogs() {
   }
 
   return data.sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
 }
 
 async function getIMULogById(sessionId, id) {
   const snapshot = await rtdb
     .ref(`realtime_monitoring/${sessionId}/${id}`)
-    .once("value");
+    .once('value');
   if (!snapshot.exists()) return null;
   const data = snapshot.val();
   return {
@@ -303,7 +297,7 @@ async function getIMULogsByDate(date) {
   const end = new Date(date);
   end.setHours(23, 59, 59, 999);
 
-  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const snapshot = await rtdb.ref('realtime_monitoring').once('value');
   const val = snapshot.val();
   if (!val) return [];
 
@@ -325,14 +319,14 @@ async function getIMULogsByDate(date) {
   }
 
   return result.sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
 }
 
 async function getIMULogsByDateAndSessionId(start, end, sessionId) {
   const snapshot = await rtdb
     .ref(`realtime_monitoring/${sessionId}`)
-    .once("value");
+    .once('value');
   const val = snapshot.val();
   if (!val) return [];
 
@@ -350,7 +344,7 @@ async function getIMULogsByDateAndSessionId(start, end, sessionId) {
 }
 
 async function getAvailableDates() {
-  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const snapshot = await rtdb.ref('realtime_monitoring').once('value');
   const val = snapshot.val();
   if (!val) return [];
 
@@ -359,7 +353,7 @@ async function getAvailableDates() {
   for (const sessionEntries of Object.values(val)) {
     for (const entry of Object.values(sessionEntries)) {
       if (entry.createdAt) {
-        const date = new Date(entry.createdAt).toISOString().split("T")[0];
+        const date = new Date(entry.createdAt).toISOString().split('T')[0];
         dates.add(date);
       }
     }
@@ -375,7 +369,7 @@ async function getAvailableSessionIdsFromDate(date) {
   const endOfDay = new Date(date);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const snapshot = await rtdb.ref('realtime_monitoring').once('value');
   const val = snapshot.val();
   if (!val) return [];
 
@@ -387,7 +381,7 @@ async function getAvailableSessionIdsFromDate(date) {
         const ts = new Date(entry.createdAt);
         if (ts >= startOfDay && ts <= endOfDay) {
           sessionIds.add(Number(sessionId));
-          break; // Only need to add sessionId once
+          break;
         }
       }
     }
@@ -397,17 +391,16 @@ async function getAvailableSessionIdsFromDate(date) {
 }
 
 async function getAvailableDatesWithSessions() {
-  const snapshot = await rtdb.ref("realtime_monitoring").once("value");
+  const snapshot = await rtdb.ref('realtime_monitoring').once('value');
   const val = snapshot.val();
   if (!val) return [];
 
-  // Map: date string -> Set of sessionIds
   const dateSessionMap = new Map();
 
   for (const [sessionId, sessionEntries] of Object.entries(val)) {
     for (const entry of Object.values(sessionEntries)) {
       if (!entry.createdAt) continue;
-      const date = new Date(entry.createdAt).toISOString().split("T")[0];
+      const date = new Date(entry.createdAt).toISOString().split('T')[0];
       if (!dateSessionMap.has(date)) {
         dateSessionMap.set(date, new Set());
       }
@@ -417,10 +410,10 @@ async function getAvailableDatesWithSessions() {
 
   const result = Array.from(dateSessionMap.entries())
     .map(([date, sessionSet]) => ({
-      label: new Date(date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
+      label: new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
       }),
       value: date,
       sessions: Array.from(sessionSet)

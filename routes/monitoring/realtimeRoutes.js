@@ -21,46 +21,45 @@ const {
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     const file = req.file;
-    const obstacle = req.body.obstacle === "true";
+    const obstacle = req.body.obstacle === 'true';
     const takenWith = req.body.takenWith || null;
 
     const metadataKeys = [
-      "ultrasonic",
-      "heading",
-      "direction",
-      "accelerationMagnitude",
-      "rotationRate",
-      "distanceTraveled",
-      "linearAcceleration",
-      "distTotal",
-      "distX",
-      "distY",
-      "velocity",
-      "velocityX",
-      "velocityY",
-      "magnetometerX",
-      "magnetometerY",
-      "magnetometerZ",
-      "positionX",
-      "positionY",
-      "pitch",
-      "roll",
-      "yaw",
+      'ultrasonic',
+      'heading',
+      'direction',
+      'accelerationMagnitude',
+      'rotationRate',
+      'distanceTraveled',
+      'linearAcceleration',
+      'distTotal',
+      'distX',
+      'distY',
+      'velocity',
+      'velocityX',
+      'velocityY',
+      'magnetometerX',
+      'magnetometerY',
+      'magnetometerZ',
+      'positionX',
+      'positionY',
+      'pitch',
+      'roll',
+      'yaw',
     ];
 
     let metadata = null;
     const hasMetadata = metadataKeys.some((key) => req.body[key] !== undefined);
 
-    // Ambil rssi dan sessionStatus di luar metadata
     const rssi = parseInt(req.body.rssi, 10) || 0;
     const sessionStatus =
-      (req.body.sessionStatus || "").toUpperCase() === "ON" ? true : false;
+      (req.body.sessionStatus || '').toUpperCase() === 'ON' ? true : false;
 
     if (hasMetadata) {
       metadata = {
         ultrasonic: parseFloat(req.body.ultrasonic) || 0,
         heading: parseFloat(req.body.heading) || 0,
-        direction: req.body.direction || "Unknown",
+        direction: req.body.direction || 'Unknown',
         accelerationMagnitude: parseFloat(req.body.accelerationMagnitude) || 0,
         rotationRate: parseFloat(req.body.rotationRate) || 0,
         distanceTraveled: parseFloat(req.body.distanceTraveled) || 0,
@@ -113,12 +112,12 @@ router.post("/", upload.single("image"), async (req, res) => {
       ...(metadata ? { metadata } : {}),
     });
 
-    let message = "Metadata saved successfully";
-    if (file && metadata) message = "Image and metadata saved successfully";
-    else if (file && !metadata) message = "Image saved successfully";
+    let message = 'Metadata saved successfully';
+    if (file && metadata) message = 'Image and metadata saved successfully';
+    else if (file && !metadata) message = 'Image saved successfully';
 
     res.status(201).json({
-      status: "success",
+      status: 'success',
       code: 201,
       message,
       data: saved,

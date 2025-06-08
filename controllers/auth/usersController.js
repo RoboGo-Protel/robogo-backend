@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 
 const SECRET_KEY = process.env.JWT_SECRET || 'robogo_gogogo';
 
-// Email configuration
+
 console.log('Email configuration check:');
 console.log('SMTP_HOST:', process.env.SMTP_HOST);
 console.log('SMTP_PORT:', process.env.SMTP_PORT);
@@ -120,22 +120,17 @@ async function requestPasswordReset({ email }) {
     throw new Error('Email is required.');
   }
 
-  // Check if user exists
   const userSnapshot = await firestore
     .collection('users')
     .where('email', '==', email)
     .limit(1)
     .get();
 
-  // For security reasons, always return success message regardless of whether email exists
-  // This prevents email enumeration attacks
   if (userSnapshot.empty) {
-    // Log the attempt for monitoring purposes
     console.log(
       `Password reset attempted for non-existent email: ${email} at ${new Date().toISOString()}`,
     );
 
-    // Return success message without actually sending email
     return {
       message:
         'If an account with that email exists, we have sent a password reset link.',
@@ -146,22 +141,18 @@ async function requestPasswordReset({ email }) {
   const userDoc = userSnapshot.docs[0];
   const userData = userDoc.data();
 
-  // Generate reset token
   const resetToken = crypto.randomBytes(32).toString('hex');
-  const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+  const resetTokenExpiry = new Date(Date.now() + 3600000);
 
-  // Save reset token to user document
   await firestore.collection('users').doc(userDoc.id).update({
     resetToken: resetToken,
     resetTokenExpiry: resetTokenExpiry,
   });
 
-  // Create reset URL
   const resetUrl = `${
     process.env.FRONTEND_URL || 'http://localhost:3000'
   }/reset-password?token=${resetToken}`;
 
-  // Email content
   const emailContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: linear-gradient(135deg, #3BD5FF 0%, #367AF2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
@@ -191,7 +182,6 @@ async function requestPasswordReset({ email }) {
     </div>
   `;
 
-  // Send email
   try {
     await transporter.sendMail({
       from: `"RoboGo" <${process.env.SMTP_USER}>`,
@@ -219,7 +209,6 @@ async function resetPassword({ token, newPassword }) {
     throw new Error('Password must be at least 6 characters long.');
   }
 
-  // Find user with this reset token
   const userSnapshot = await firestore
     .collection('users')
     .where('resetToken', '==', token)
@@ -233,7 +222,6 @@ async function resetPassword({ token, newPassword }) {
   const userDoc = userSnapshot.docs[0];
   const userData = userDoc.data();
 
-  // Check if token has expired
   if (
     !userData.resetTokenExpiry ||
     userData.resetTokenExpiry.toDate() < new Date()
@@ -243,10 +231,8 @@ async function resetPassword({ token, newPassword }) {
     );
   }
 
-  // Hash the new password
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  // Update user password and remove reset token
   await firestore.collection('users').doc(userDoc.id).update({
     password: hashedPassword,
     resetToken: null,
@@ -265,7 +251,6 @@ async function googleAuth({ email, name, googleId, picture }) {
   }
 
   try {
-    // Check if user already exists
     const existingUserSnapshot = await firestore
       .collection('users')
       .where('email', '==', email)
@@ -276,11 +261,9 @@ async function googleAuth({ email, name, googleId, picture }) {
     let userData;
 
     if (!existingUserSnapshot.empty) {
-      // User exists, update with Google info if not already linked
       userDoc = existingUserSnapshot.docs[0];
       userData = userDoc.data();
 
-      // Update Google info if not already set
       if (!userData.googleId) {
         await firestore
           .collection('users')
@@ -298,13 +281,12 @@ async function googleAuth({ email, name, googleId, picture }) {
         };
       }
     } else {
-      // Create new user with Google info
       const newUserData = {
         email,
         name,
         googleId,
         picture: picture || null,
-        password: null, // No password for Google users
+        password: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         resetToken: null,
@@ -315,7 +297,6 @@ async function googleAuth({ email, name, googleId, picture }) {
       userData = newUserData;
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       {
         userId: userDoc.id,

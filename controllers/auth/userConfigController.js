@@ -1,6 +1,6 @@
 const { firestore } = require('../database');
 
-// Default user configuration structure
+
 const DEFAULT_CONFIG = {
   selectedDevice: null,
   cameraStreamUrl: '',
@@ -17,12 +17,10 @@ async function getUserConfig(userId) {
       .get();
 
     if (!configDoc.exists) {
-      // Return default config if none exists
       return DEFAULT_CONFIG;
     }
     const configData = configDoc.data();
 
-    // Merge with default config to ensure all required fields exist
     return {
       ...DEFAULT_CONFIG,
       ...configData,
@@ -43,7 +41,6 @@ async function saveUserConfig(userId, configData) {
   try {
     const now = new Date();
 
-    // Get existing config to check if it exists
     const existingConfig = await firestore
       .collection('userConfigs')
       .doc(userId)
@@ -54,12 +51,10 @@ async function saveUserConfig(userId, configData) {
       updatedAt: now,
     };
 
-    // Add createdAt if this is a new config
     if (!existingConfig.exists) {
       updateData.createdAt = now;
     }
 
-    // Save to Firestore
     await firestore
       .collection('userConfigs')
       .doc(userId)

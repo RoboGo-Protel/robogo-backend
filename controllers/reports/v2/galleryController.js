@@ -81,8 +81,8 @@ async function downloadImageByID(id) {
       }
 
       const [url] = await file.getSignedUrl({
-        action: "read",
-        expires: Date.now() + 24 * 60 * 60 * 1000, // 1 day
+        action: 'read',
+        expires: Date.now() + 24 * 60 * 60 * 1000,
       });
 
       return url;
