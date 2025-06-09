@@ -3,12 +3,12 @@ const router = express.Router();
 const { firestore } = require('../../controllers/database');
 const {
   getUserConfig,
+  getUserConfigWithDevices,
   saveUserConfig,
   deleteUserConfig,
   getAllUserConfigs,
 } = require('../../controllers/auth/userConfigController');
 const authenticateToken = require('../../middleware/authMiddleware');
-
 
 router.get('/config', authenticateToken, async (req, res) => {
   try {
@@ -201,6 +201,29 @@ router.put('/skip-onboarding', authenticateToken, async (req, res) => {
       status: 'error',
       code: 500,
       message: error.message || 'Failed to skip onboarding',
+    });
+  }
+});
+
+// Get user config with all assigned devices' camera URLs included
+router.get('/config/with-devices', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const configWithDevices = await getUserConfigWithDevices(userId);
+
+    res.status(200).json({
+      status: 'success',
+      code: 200,
+      message: 'User configuration with devices retrieved successfully',
+      data: configWithDevices,
+    });
+  } catch (error) {
+    console.error('Error retrieving user config with devices:', error);
+    res.status(500).json({
+      status: 'error',
+      code: 500,
+      message:
+        error.message || 'Failed to retrieve user configuration with devices',
     });
   }
 });
