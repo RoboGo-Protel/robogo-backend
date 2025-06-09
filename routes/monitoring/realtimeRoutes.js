@@ -32,6 +32,16 @@ router.post('/', upload.single('image'), async (req, res) => {
     const obstacle = req.body.obstacle === 'true';
     const takenWith = req.body.takenWith || null;
 
+    // Check if no parameters are provided, set default deviceName
+    const hasAnyParams = Object.keys(req.body).length > 0 || file;
+    if (!hasAnyParams) {
+      // Set default device name if no parameters provided
+      req.headers['x-device-name'] = 'esp32-48BB88';
+      console.log(
+        'No parameters provided, using default deviceName: esp32-48BB88',
+      );
+    }
+
     const metadataKeys = [
       'ultrasonic',
       'heading',
@@ -54,12 +64,15 @@ router.post('/', upload.single('image'), async (req, res) => {
       'pitch',
       'roll',
       'yaw',
+      'gps_lat',
+      'gps_lon',
+      'gps_alt',
     ];
 
     let metadata = null;
     const hasMetadata = metadataKeys.some((key) => req.body[key] !== undefined);
-
     const rssi = parseInt(req.body.rssi, 10) || 0;
+    const rssiDistance = parseFloat(req.body.rssiDistance) || 0;
     const sessionStatus =
       (req.body.sessionStatus || '').toUpperCase() === 'ON' ? true : false;
 
@@ -94,6 +107,11 @@ router.post('/', upload.single('image'), async (req, res) => {
         pitch: parseFloat(req.body.pitch) || 0,
         roll: parseFloat(req.body.roll) || 0,
         yaw: parseFloat(req.body.yaw) || 0,
+        gps: {
+          gps_lat: parseFloat(req.body.gps_lat) || 0,
+          gps_lon: parseFloat(req.body.gps_lon) || 0,
+          gps_alt: parseFloat(req.body.gps_alt) || 0,
+        },
       };
     }
 
@@ -116,15 +134,20 @@ router.post('/', upload.single('image'), async (req, res) => {
         obstacle,
         takenWith,
         rssi,
+        rssiDistance,
         sessionStatus,
         ...(metadata ? { metadata } : {}),
       },
       req.user,
     );
-
     let message = 'Metadata saved successfully';
     if (file && metadata) message = 'Image and metadata saved successfully';
     else if (file && !metadata) message = 'Image saved successfully';
+
+    // Add note if default device name was used
+    if (!hasAnyParams) {
+      message += ' (using default device: esp32-48BB88)';
+    }
 
     res.status(201).json({
       status: 'success',
