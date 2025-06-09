@@ -15,118 +15,116 @@ const {
   deleteUltrasonicLogByID,
   deleteUltrasonicLogByDate,
   deleteUltrasonicLogByDateAndSessionId,
-} = require("../../controllers/reports/ultrasonicController");
+} = require('../../controllers/reports/ultrasonicController');
+const deviceNameMiddleware = require('../../middleware/userDeviceMiddleware');
 
-router.post("/", async (req, res) => {
+// Apply device name middleware to all routes
+router.use(deviceNameMiddleware);
+
+router.post('/', async (req, res) => {
   try {
-    const { sessionId, distance, timestamp, imageId } = req.body;
-    const saved = await saveUltrasonicLog({
-      sessionId,
-      distance,
-      timestamp,
-      imageId,
-    });
+    const saved = await saveUltrasonicLog(req.body, req.user);
     if (!req.body || Object.keys(req.body).length === 0) {
       return res.status(400).json({
-        status: "error",
+        status: 'error',
         code: 400,
-        message: "Request body cannot be empty",
+        message: 'Request body cannot be empty',
       });
     }
     if (!saved) {
       return res.status(400).json({
-        status: "error",
+        status: 'error',
         code: 400,
-        message: "Failed to save ultrasonic log",
+        message: 'Failed to save ultrasonic log',
       });
     }
     res.status(201).json({
-      status: "success",
+      status: 'success',
       code: 201,
-      message: "Ultrasonic log saved successfully",
+      message: 'Ultrasonic log saved successfully',
       data: saved,
     });
   } catch (err) {
-    console.error("Save ultrasonic error:", err);
+    console.error('Save ultrasonic error:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to save ultrasonic log",
+      message: 'Failed to save ultrasonic log',
     });
   }
 });
 
-router.get("/", async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const ultrasonicLogs = await getAllUltrasonicLogs();
+    const ultrasonicLogs = await getAllUltrasonicLogs(req.user);
 
     if (ultrasonicLogs.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No ultrasonic logs found",
+        message: 'No ultrasonic logs found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Ultrasonic logs retrieved successfully",
+      message: 'Ultrasonic logs retrieved successfully',
       data: ultrasonicLogs,
     });
   } catch (err) {
-    console.error("Error retrieving ultrasonic logs:", err);
+    console.error('Error retrieving ultrasonic logs:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve ultrasonic logs",
+      message: 'Failed to retrieve ultrasonic logs',
     });
   }
 });
 
-router.get("/dates-with-sessions", async (req, res) => {
+router.get('/dates-with-sessions', async (req, res) => {
   try {
-    const dates = await getAvailableDatesWithSessions();
+    const dates = await getAvailableDatesWithSessions(req.user);
     if (!dates || dates.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No available dates with sessions found",
+        message: 'No available dates with sessions found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Available dates with sessions retrieved successfully",
+      message: 'Available dates with sessions retrieved successfully',
       data: dates,
     });
   } catch (err) {
-    console.error("Error retrieving available dates with sessions:", err);
+    console.error('Error retrieving available dates with sessions:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve available dates with sessions",
+      message: 'Failed to retrieve available dates with sessions',
     });
   }
 });
 
-router.get("/dates/:date/sessions", async (req, res) => {
+router.get('/dates/:date/sessions', async (req, res) => {
   const dateStr = req.params.date;
 
   if (!dateStr) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Date is required",
+      message: 'Date is required',
     });
   }
 
-  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const [year, month, day] = dateStr.split('-').map((num) => parseInt(num, 10));
   const validDate = new Date(dateStr);
   if (isNaN(validDate)) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Invalid date. Expected format: yyyy-mm-dd",
+      message: 'Invalid date. Expected format: yyyy-mm-dd',
     });
   }
 
@@ -136,113 +134,110 @@ router.get("/dates/:date/sessions", async (req, res) => {
     validDate.getDate() !== day
   ) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
       message:
-        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+        'Invalid date. Please provide a valid date (e.g., no 31st February).',
     });
   }
 
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
   try {
-    const sessionIds = await getAvailableSessionIdsFromDate(
-      startOfDay,
-      endOfDay
-    );
+    const sessionIds = await getAvailableSessionIdsFromDate(req.user);
     if (!sessionIds || sessionIds.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No available session IDs found for the given date",
+        message: 'No available session IDs found for the given date',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Available session IDs retrieved successfully",
+      message: 'Available session IDs retrieved successfully',
       data: sessionIds,
     });
   } catch (err) {
-    console.error("Error retrieving available session IDs:", err);
+    console.error('Error retrieving available session IDs:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve available session IDs",
+      message: 'Failed to retrieve available session IDs',
     });
   }
 });
 
-router.get("/dates", async (req, res) => {
+router.get('/dates', async (req, res) => {
   try {
-    const dates = await getAvailableDates();
+    const dates = await getAvailableDates(req.user);
     if (!dates || dates.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No available dates found",
+        message: 'No available dates found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Available dates retrieved successfully",
+      message: 'Available dates retrieved successfully',
       data: dates,
     });
   } catch (err) {
-    console.error("Error retrieving available dates:", err);
+    console.error('Error retrieving available dates:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve available dates",
+      message: 'Failed to retrieve available dates',
     });
   }
 });
 
-router.get("/summaries", async (req, res) => {
+router.get('/summaries', async (req, res) => {
   try {
-    const summary = await getAllSummaries();
+    const summary = await getAllSummaries(req.user);
 
     if (summary.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No summaries found",
+        message: 'No summaries found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Summaries retrieved successfully",
+      message: 'Summaries retrieved successfully',
       data: summary,
     });
   } catch (err) {
-    console.error("Error retrieving summaries:", err);
+    console.error('Error retrieving summaries:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve summaries",
+      message: 'Failed to retrieve summaries',
     });
   }
 });
 
-router.get("/summaries/:date", async (req, res) => {
+router.get('/summaries/:date', async (req, res) => {
   const dateStr = req.params.date;
   if (!dateStr) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Date is required",
+      message: 'Date is required',
     });
   }
 
-  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const [year, month, day] = dateStr.split('-').map((num) => parseInt(num, 10));
   const validDate = new Date(dateStr);
   if (isNaN(validDate)) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Invalid date. Expected format: yyyy-mm-dd",
+      message: 'Invalid date. Expected format: yyyy-mm-dd',
     });
   }
 
@@ -252,61 +247,60 @@ router.get("/summaries/:date", async (req, res) => {
     validDate.getDate() !== day
   ) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
       message:
-        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+        'Invalid date. Please provide a valid date (e.g., no 31st February).',
     });
   }
 
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
-
   try {
-    const summary = await getSummariesByDate(startOfDay, endOfDay);
+    const summary = await getSummariesByDate(req.user);
 
     if (summary.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No summaries found for this date",
+        message: 'No summaries found for this date',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Summaries retrieved successfully",
+      message: 'Summaries retrieved successfully',
       data: summary,
     });
   } catch (err) {
-    console.error("Summary by date error:", err);
+    console.error('Summary by date error:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve summaries by date",
+      message: 'Failed to retrieve summaries by date',
     });
   }
 });
 
-router.get("/summaries/date/:date/session/:sessionId", async (req, res) => {
+router.get('/summaries/date/:date/session/:sessionId', async (req, res) => {
   const dateStr = req.params.date;
   const sessionId = req.params.sessionId;
 
   if (!sessionId) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Session ID is required",
+      message: 'Session ID is required',
     });
   }
 
-  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const [year, month, day] = dateStr.split('-').map((num) => parseInt(num, 10));
   const validDate = new Date(dateStr);
   if (isNaN(validDate)) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Invalid date. Expected format: yyyy-mm-dd",
+      message: 'Invalid date. Expected format: yyyy-mm-dd',
     });
   }
 
@@ -316,58 +310,57 @@ router.get("/summaries/date/:date/session/:sessionId", async (req, res) => {
     validDate.getDate() !== day
   ) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
       message:
-        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+        'Invalid date. Please provide a valid date (e.g., no 31st February).',
     });
   }
-
   try {
-    const summary = await getSummariesByDateAndSessionId(dateStr, sessionId);
+    const summary = await getSummariesByDateAndSessionId(req.user);
 
     if (summary.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No summaries found for this date and session ID",
+        message: 'No summaries found for this date and session ID',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Summaries by date and sessionId retrieved successfully",
+      message: 'Summaries by date and sessionId retrieved successfully',
       data: summary,
     });
   } catch (err) {
-    console.error("Summary by date and sessionId error:", err);
+    console.error('Summary by date and sessionId error:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve summaries by date and sessionId",
+      message: 'Failed to retrieve summaries by date and sessionId',
     });
   }
 });
 
-router.get("/date/:date/session/:sessionId", async (req, res) => {
+router.get('/date/:date/session/:sessionId', async (req, res) => {
   const dateStr = req.params.date;
   const sessionId = req.params.sessionId;
 
   if (!sessionId) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Session ID is required",
+      message: 'Session ID is required',
     });
   }
 
-  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const [year, month, day] = dateStr.split('-').map((num) => parseInt(num, 10));
   const validDate = new Date(dateStr);
   if (isNaN(validDate)) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Invalid date. Expected format: yyyy-mm-dd",
+      message: 'Invalid date. Expected format: yyyy-mm-dd',
     });
   }
 
@@ -377,66 +370,61 @@ router.get("/date/:date/session/:sessionId", async (req, res) => {
     validDate.getDate() !== day
   ) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
       message:
-        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+        'Invalid date. Please provide a valid date (e.g., no 31st February).',
     });
   }
 
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
-
   try {
-    const logs = await getUltrasonicLogsByDateAndSessionId(
-      startOfDay,
-      endOfDay,
-      sessionId
-    );
+    const logs = await getUltrasonicLogsByDateAndSessionId(req.user);
     if (!logs || logs.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No logs found",
+        message: 'No logs found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Ultrasonic logs by date and sessionId retrieved successfully",
+      message: 'Ultrasonic logs by date and sessionId retrieved successfully',
       data: logs,
     });
   } catch (err) {
     console.error(
-      "Error retrieving ultrasonic logs by date and sessionId:",
-      err
+      'Error retrieving ultrasonic logs by date and sessionId:',
+      err,
     );
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve ultrasonic logs by date and sessionId",
+      message: 'Failed to retrieve ultrasonic logs by date and sessionId',
     });
   }
 });
 
-router.get("/date/:date", async (req, res) => {
+router.get('/date/:date', async (req, res) => {
   const dateStr = req.params.date;
 
   if (!dateStr) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Date is required",
+      message: 'Date is required',
     });
   }
 
-  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const [year, month, day] = dateStr.split('-').map((num) => parseInt(num, 10));
   const validDate = new Date(dateStr);
   if (isNaN(validDate)) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Invalid date. Expected format: yyyy-mm-dd",
+      message: 'Invalid date. Expected format: yyyy-mm-dd',
     });
   }
 
@@ -446,86 +434,86 @@ router.get("/date/:date", async (req, res) => {
     validDate.getDate() !== day
   ) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
       message:
-        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+        'Invalid date. Please provide a valid date (e.g., no 31st February).',
     });
   }
 
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
   try {
-    const logs = await getUltrasonicLogsByDate(startOfDay, endOfDay);
+    const logs = await getUltrasonicLogsByDate(req.user);
 
     if (!logs || logs.length === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No logs found",
+        message: 'No logs found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Ultrasonic logs by date retrieved successfully",
+      message: 'Ultrasonic logs by date retrieved successfully',
       data: logs,
     });
   } catch (err) {
-    console.error("Error retrieving ultrasonic logs by date:", err);
+    console.error('Error retrieving ultrasonic logs by date:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve ultrasonic logs by date",
+      message: 'Failed to retrieve ultrasonic logs by date',
     });
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const log = await getUltrasonicLogById(req.params.id);
+    const log = await getUltrasonicLogById(req.user);
     if (!log) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "Ultrasonic log not found",
+        message: 'Ultrasonic log not found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Ultrasonic log retrieved successfully",
+      message: 'Ultrasonic log retrieved successfully',
       data: log,
     });
   } catch (err) {
-    console.error("Error retrieving ultrasonic log:", err);
+    console.error('Error retrieving ultrasonic log:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve ultrasonic log",
+      message: 'Failed to retrieve ultrasonic log',
     });
   }
 });
 
-router.delete("/date/:date/session/:sessionId", async (req, res) => {
+router.delete('/date/:date/session/:sessionId', async (req, res) => {
   const dateStr = req.params.date;
   const sessionId = req.params.sessionId;
 
   if (!sessionId) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Session ID is required",
+      message: 'Session ID is required',
     });
   }
 
-  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const [year, month, day] = dateStr.split('-').map((num) => parseInt(num, 10));
   const validDate = new Date(dateStr);
   if (isNaN(validDate)) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Invalid date. Expected format: yyyy-mm-dd",
+      message: 'Invalid date. Expected format: yyyy-mm-dd',
     });
   }
 
@@ -535,61 +523,57 @@ router.delete("/date/:date/session/:sessionId", async (req, res) => {
     validDate.getDate() !== day
   ) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
       message:
-        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+        'Invalid date. Please provide a valid date (e.g., no 31st February).',
     });
   }
 
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
   try {
-    const success = await deleteUltrasonicLogByDateAndSessionId(
-      startOfDay,
-      endOfDay,
-      sessionId
-    );
+    const success = await deleteUltrasonicLogByDateAndSessionId(req.user);
     if (!success) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "Ultrasonic log not found",
+        message: 'Ultrasonic log not found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Ultrasonic log deleted successfully",
+      message: 'Ultrasonic log deleted successfully',
     });
   } catch (err) {
-    console.error("Error deleting ultrasonic log:", err);
+    console.error('Error deleting ultrasonic log:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to delete ultrasonic log",
+      message: 'Failed to delete ultrasonic log',
     });
   }
 });
 
-router.delete("/date/:date", async (req, res) => {
+router.delete('/date/:date', async (req, res) => {
   const dateStr = req.params.date;
 
   if (!dateStr) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Date is required",
+      message: 'Date is required',
     });
   }
 
-  const [year, month, day] = dateStr.split("-").map((num) => parseInt(num, 10));
+  const [year, month, day] = dateStr.split('-').map((num) => parseInt(num, 10));
   const validDate = new Date(dateStr);
   if (isNaN(validDate)) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
-      message: "Invalid date. Expected format: yyyy-mm-dd",
+      message: 'Invalid date. Expected format: yyyy-mm-dd',
     });
   }
 
@@ -599,62 +583,62 @@ router.delete("/date/:date", async (req, res) => {
     validDate.getDate() !== day
   ) {
     return res.status(400).json({
-      status: "error",
+      status: 'error',
       code: 400,
       message:
-        "Invalid date. Please provide a valid date (e.g., no 31st February).",
+        'Invalid date. Please provide a valid date (e.g., no 31st February).',
     });
   }
 
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
   try {
-    const success = await deleteUltrasonicLogByDate(startOfDay, endOfDay);
+    const success = await deleteUltrasonicLogByDate(req.user);
     if (!success) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "Ultrasonic log not found",
+        message: 'Ultrasonic log not found',
       });
     }
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Ultrasonic log deleted successfully",
+      message: 'Ultrasonic log deleted successfully',
     });
   } catch (err) {
-    console.error("Error deleting ultrasonic log:", err);
+    console.error('Error deleting ultrasonic log:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to delete ultrasonic log",
+      message: 'Failed to delete ultrasonic log',
     });
   }
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const success = await deleteUltrasonicLogByID(req.params.id);
+    const success = await deleteUltrasonicLogByID(req.user);
 
     if (!success) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "Ultrasonic log not found",
+        message: 'Ultrasonic log not found',
       });
     }
 
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Ultrasonic log deleted successfully",
+      message: 'Ultrasonic log deleted successfully',
     });
   } catch (err) {
-    console.error("Error deleting ultrasonic log:", err);
+    console.error('Error deleting ultrasonic log:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to delete ultrasonic log",
+      message: 'Failed to delete ultrasonic log',
     });
   }
 });

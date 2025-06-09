@@ -6,14 +6,17 @@ const {
   assignUserToDevice,
   getDevicesByUser,
   getUnassignedDevices,
-} = require("../../controllers/others/deviceController");
-const authenticateToken = require("../../middleware/authMiddleware");
+  unassignDeviceFromUser,
+} = require('../../controllers/others/deviceController');
+const authenticateToken = require('../../middleware/authMiddleware');
 
-router.get("/", getAllDevices);
+router.get('/', getAllDevices);
 
-router.post("/", addDevice);
+router.post('/', addDevice);
 
-router.put("/assign", authenticateToken, assignUserToDevice);
+router.put('/assign', authenticateToken, assignUserToDevice);
+
+router.put('/unassign', authenticateToken, unassignDeviceFromUser);
 
 router.get("/user", authenticateToken, getDevicesByUser);
 

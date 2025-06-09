@@ -1,31 +1,66 @@
-const { firestore } = require("../database");
+const { rtdb, firestore } = require('../database');
 
 function getDirectionFromHeading(heading) {
   const directions = [
-    "N",
-    "NNE",
-    "NE",
-    "ENE",
-    "E",
-    "ESE",
-    "SE",
-    "SSE",
-    "S",
-    "SSW",
-    "SW",
-    "WSW",
-    "W",
-    "WNW",
-    "NW",
-    "NNW",
-    "N",
+    'N',
+    'NNE',
+    'NE',
+    'ENE',
+    'E',
+    'ESE',
+    'SE',
+    'SSE',
+    'S',
+    'SSW',
+    'SW',
+    'WSW',
+    'W',
+    'WNW',
+    'NW',
+    'NNW',
+    'N',
   ];
   const index = Math.round(heading / 22.5) % 16;
   return directions[index];
 }
 
-async function saveIMULog(
-  {
+// Extract user and device context from request
+function extractUserDeviceContext(req) {
+  const userId =
+    req.headers['x-user-id'] ||
+    req.query.user_id ||
+    req.body.user_id ||
+    'default_user';
+  const deviceId =
+    req.headers['x-device-id'] ||
+    req.query.device_id ||
+    req.body.device_id ||
+    'default_device';
+  return { userId, deviceId };
+}
+
+async function getCurrentSession(userId, deviceId) {
+  const currentSessionSnap = await rtdb
+    .ref(`users/${userId}/${deviceId}/current_session`)
+    .once('value');
+  let sessionId = currentSessionSnap.val();
+
+  if (
+    !sessionId ||
+    typeof sessionId !== 'number' ||
+    sessionId < 1 ||
+    isNaN(sessionId)
+  ) {
+    // Return a default session or throw error based on requirements
+    return 1; // Default session
+  }
+
+  return sessionId;
+}
+
+async function saveIMULog(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const {
     timestamp,
     sessionId = null,
     acceleration,
@@ -34,19 +69,18 @@ async function saveIMULog(
     heading,
     direction,
     status,
-  },
-  userContext,
-) {
+  } = req.body;
+
   const parsedHeading = parseFloat(heading || 0);
   const calculatedDirection = getDirectionFromHeading(parsedHeading);
 
+  // Save to both Firestore (for reports) and RTDB (for realtime data)
   const ref = firestore.collection('imu_logs').doc();
   const data = {
+    user_id: userId,
+    device_id: deviceId,
     timestamp: timestamp ? new Date(timestamp) : new Date(),
     sessionId: sessionId,
-    user_id: userContext.userId,
-    device_id: userContext.selectedDevice,
-    deviceName: userContext.deviceName,
     acceleration: {
       x: parseFloat(acceleration?.x || 0),
       y: parseFloat(acceleration?.y || 0),
@@ -77,18 +111,19 @@ async function saveIMULog(
   };
 }
 
-async function getAllSummaries(userContext) {
+async function getAllSummaries(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
-    .limit(100) // Limit for performance
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
+    .orderBy('timestamp', 'asc')
     .get();
 
   let total_heading = 0;
   let max_turn_angle = 0;
   let count = 0;
-
   let previous_heading = null;
   let min_heading = Infinity;
   let max_heading = -Infinity;
@@ -120,7 +155,10 @@ async function getAllSummaries(userContext) {
   };
 }
 
-async function getSummariesByDate(date, userContext) {
+async function getSummariesByDate(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -129,18 +167,17 @@ async function getSummariesByDate(date, userContext) {
 
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<', endOfDay)
-    .limit(100) // Avoid composite index requirement
+    .orderBy('timestamp', 'asc')
     .get();
 
   let total_heading = 0;
   let heading_differences = 0;
   let max_turn_angle = 0;
   let count = 0;
-
   let previous_heading = null;
 
   snapshot.forEach((doc) => {
@@ -168,7 +205,10 @@ async function getSummariesByDate(date, userContext) {
   };
 }
 
-async function getSummariesByDateAndSessionId(date, sessionId, userContext) {
+async function getSummariesByDateAndSessionId(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date, sessionId } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -177,19 +217,18 @@ async function getSummariesByDateAndSessionId(date, sessionId, userContext) {
 
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<', endOfDay)
     .where('sessionId', '==', Number(sessionId))
-    .limit(100)
+    .orderBy('timestamp', 'asc')
     .get();
 
   let total_heading = 0;
   let heading_differences = 0;
   let max_turn_angle = 0;
   let count = 0;
-
   let previous_heading = null;
 
   snapshot.forEach((doc) => {
@@ -217,17 +256,17 @@ async function getSummariesByDateAndSessionId(date, sessionId, userContext) {
   };
 }
 
-async function getAllIMULogs(userContext) {
-  // Use a simpler query without orderBy to avoid composite index requirement
+async function getAllIMULogs(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
-    .limit(100) // Limit results for better performance
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
+    .orderBy('timestamp', 'asc')
     .get();
 
-  // Sort the results in memory after retrieval
-  const results = snapshot.docs.map((doc) => {
+  return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -236,27 +275,22 @@ async function getAllIMULogs(userContext) {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
-
-  // Sort by timestamp in memory
-  return results.sort((a, b) => {
-    const timeA = new Date(a.timestamp || a.createdAt || 0);
-    const timeB = new Date(b.timestamp || b.createdAt || 0);
-    return timeA.getTime() - timeB.getTime();
-  });
 }
 
-async function getIMULogById(id, userContext) {
+async function getIMULogById(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { id } = req.params;
+
   const ref = firestore.collection('imu_logs').doc(id);
   const doc = await ref.get();
+
   if (!doc.exists) return null;
+
   const data = doc.data();
 
   // Verify ownership
-  if (
-    data.user_id !== userContext.userId ||
-    data.device_id !== userContext.selectedDevice
-  ) {
-    return null; // Not accessible to this user/device
+  if (data.user_id !== userId || data.device_id !== deviceId) {
+    return null;
   }
 
   return {
@@ -267,7 +301,10 @@ async function getIMULogById(id, userContext) {
   };
 }
 
-async function getIMULogsByDate(date, userContext) {
+async function getIMULogsByDate(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -276,14 +313,14 @@ async function getIMULogsByDate(date, userContext) {
 
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<', endOfDay)
-    .limit(100) // Avoid composite index requirement
+    .orderBy('timestamp', 'asc')
     .get();
 
-  const results = snapshot.docs.map((doc) => {
+  return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -292,33 +329,29 @@ async function getIMULogsByDate(date, userContext) {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
-
-  // Sort by timestamp in memory to avoid composite index requirement
-  return results.sort((a, b) => {
-    const timeA = new Date(a.timestamp || a.createdAt || 0);
-    const timeB = new Date(b.timestamp || b.createdAt || 0);
-    return timeA.getTime() - timeB.getTime();
-  });
 }
 
-async function getIMULogsByDateAndSessionId(
-  startOfDay,
-  endOfDay,
-  sessionId,
-  userContext,
-) {
+async function getIMULogsByDateAndSessionId(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date, sessionId } = req.params;
+
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<', endOfDay)
     .where('sessionId', '==', Number(sessionId))
-    .limit(100)
+    .orderBy('timestamp', 'asc')
     .get();
 
-  // Sort by timestamp in memory to avoid composite index requirement
-  const logs = snapshot.docs.map((doc) => {
+  return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -327,17 +360,16 @@ async function getIMULogsByDateAndSessionId(
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
-
-  // Sort by timestamp in ascending order
-  return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-async function getAvailableDates(userContext) {
+async function getAvailableDates(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
-    .limit(100)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
+    .orderBy('timestamp', 'asc')
     .get();
 
   const dates = new Set();
@@ -352,7 +384,10 @@ async function getAvailableDates(userContext) {
   return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
 }
 
-async function getAvailableSessionIdsFromDate(date, userContext) {
+async function getAvailableSessionIdsFromDate(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -361,11 +396,11 @@ async function getAvailableSessionIdsFromDate(date, userContext) {
 
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<', endOfDay)
-    .limit(100)
+    .orderBy('sessionId', 'asc')
     .get();
 
   const sessionIds = new Set();
@@ -379,12 +414,14 @@ async function getAvailableSessionIdsFromDate(date, userContext) {
   return Array.from(sessionIds).sort((a, b) => a - b);
 }
 
-async function getAvailableDatesWithSessions(userContext) {
+async function getAvailableDatesWithSessions(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
-    .limit(100)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
+    .orderBy('timestamp', 'asc')
     .get();
 
   const dateSessionMap = new Map();
@@ -429,25 +466,30 @@ async function getAvailableDatesWithSessions(userContext) {
   return result;
 }
 
-async function deleteIMULogByID(id, userContext) {
+async function deleteIMULogByID(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { id } = req.params;
+
   const ref = firestore.collection('imu_logs').doc(id);
   const doc = await ref.get();
+
   if (!doc.exists) return false;
 
   const data = doc.data();
-  // Verify ownership before deletion
-  if (
-    data.user_id !== userContext.userId ||
-    data.device_id !== userContext.selectedDevice
-  ) {
-    return false; // Not accessible to this user/device
+
+  // Verify ownership
+  if (data.user_id !== userId || data.device_id !== deviceId) {
+    return false;
   }
 
   await ref.delete();
   return true;
 }
 
-async function deleteIMULogByDate(date, userContext) {
+async function deleteIMULogByDate(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -456,8 +498,8 @@ async function deleteIMULogByDate(date, userContext) {
 
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<', endOfDay)
     .get();
@@ -467,18 +509,24 @@ async function deleteIMULogByDate(date, userContext) {
     batch.delete(doc.ref);
   });
   await batch.commit();
+
+  return snapshot.docs.length;
 }
 
-async function deleteIMULogByDateAndSessionId(
-  startOfDay,
-  endOfDay,
-  sessionId,
-  userContext,
-) {
+async function deleteIMULogByDateAndSessionId(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date, sessionId } = req.params;
+
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
   const snapshot = await firestore
     .collection('imu_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<', endOfDay)
     .where('sessionId', '==', Number(sessionId))
@@ -489,6 +537,8 @@ async function deleteIMULogByDateAndSessionId(
     batch.delete(doc.ref);
   });
   await batch.commit();
+
+  return snapshot.docs.length;
 }
 
 module.exports = {

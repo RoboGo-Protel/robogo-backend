@@ -1,24 +1,23 @@
 const { firestore } = require("../database");
 
-async function savePathLog({
-  timestamp,
-  sessionId = null,
-  status,
-  position,
-  speed,
-  heading,
-}) {
-  const ref = firestore.collection("path_logs").doc();
+async function savePathLog(
+  { timestamp, sessionId = null, status, position, speed, heading },
+  userContext,
+) {
+  const ref = firestore.collection('path_logs').doc();
   const data = {
     timestamp: timestamp ? new Date(timestamp) : new Date(),
     sessionId: sessionId,
+    user_id: userContext.userId,
+    device_id: userContext.selectedDevice,
+    deviceName: userContext.deviceName,
     position: {
       x: parseFloat(position?.x || 0),
       y: parseFloat(position?.y || 0),
     },
     speed: parseFloat(speed || 0),
     heading: parseFloat(heading || 0),
-    status: status || "Moving",
+    status: status || 'Moving',
     createdAt: new Date(),
   };
 
@@ -26,13 +25,16 @@ async function savePathLog({
   return { id: ref.id, ...data };
 }
 
-async function getAllPathLogs() {
+async function getAllPathLogs(userContext) {
   const snapshot = await firestore
-    .collection("path_logs")
-    .orderBy("timestamp", "asc")
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .limit(100)
     .get();
 
-  return snapshot.docs.map((doc) => {
+  // Sort by timestamp in memory to avoid composite index requirement
+  const logs = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -41,13 +43,26 @@ async function getAllPathLogs() {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
+
+  // Sort by timestamp in ascending order
+  return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-async function getPathLogById(id) {
-  const ref = firestore.collection("path_logs").doc(id);
+async function getPathLogById(userContext) {
+  const id = userContext.id;
+  const ref = firestore.collection('path_logs').doc(id);
   const doc = await ref.get();
   if (!doc.exists) return null;
+
   const data = doc.data();
+  // Check ownership
+  if (
+    data.user_id !== userContext.userId ||
+    data.device_id !== userContext.selectedDevice
+  ) {
+    return null;
+  }
+
   return {
     id: doc.id,
     ...data,
@@ -56,14 +71,18 @@ async function getPathLogById(id) {
   };
 }
 
-async function getPathLogsBySessionId(sessionId) {
+async function getPathLogsBySessionId(userContext) {
+  const sessionId = userContext.sessionId;
   const snapshot = await firestore
-    .collection("path_logs")
-    .where("sessionId", "==", sessionId)
-    .orderBy("timestamp", "asc")
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .where('sessionId', '==', sessionId)
+    .limit(100)
     .get();
 
-  return snapshot.docs.map((doc) => {
+  // Sort by timestamp in memory to avoid composite index requirement
+  const logs = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -72,23 +91,29 @@ async function getPathLogsBySessionId(sessionId) {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
+
+  // Sort by timestamp in ascending order
+  return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-async function getPathLogsByDate(date) {
+async function getPathLogsByDate(userContext) {
+  const date = userContext.date;
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
   const endOfDay = new Date(date);
   endOfDay.setHours(23, 59, 59, 999);
-
   const snapshot = await firestore
-    .collection("path_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
-    .orderBy("timestamp", "asc")
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
+    .limit(100)
     .get();
 
-  return snapshot.docs.map((doc) => {
+  // Sort by timestamp in memory to avoid composite index requirement
+  const logs = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -97,18 +122,27 @@ async function getPathLogsByDate(date) {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
+
+  // Sort by timestamp in ascending order
+  return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-async function getPathLogsByDateAndSessionId(startOfDay, endOfDay, sessionId) {
+async function getPathLogsByDateAndSessionId(userContext) {
+  const startOfDay = userContext.startOfDay;
+  const endOfDay = userContext.endOfDay;
+  const sessionId = userContext.sessionId;
   const snapshot = await firestore
-    .collection("path_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
-    .where("sessionId", "==", Number(sessionId))
-    .orderBy("timestamp", "asc")
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
+    .where('sessionId', '==', Number(sessionId))
+    .limit(100)
     .get();
 
-  return snapshot.docs.map((doc) => {
+  // Sort by timestamp in memory to avoid composite index requirement
+  const logs = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -117,19 +151,24 @@ async function getPathLogsByDateAndSessionId(startOfDay, endOfDay, sessionId) {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
+
+  // Sort by timestamp in ascending order
+  return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-async function getAvailableDates() {
+async function getAvailableDates(userContext) {
   const snapshot = await firestore
-    .collection("path_logs")
-    .orderBy("timestamp", "asc")
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .limit(100)
     .get();
 
   const dates = new Set();
   snapshot.docs.forEach((doc) => {
     const data = doc.data();
     if (data.timestamp) {
-      const date = data.timestamp.toDate().toISOString().split("T")[0];
+      const date = data.timestamp.toDate().toISOString().split('T')[0];
       dates.add(date);
     }
   });
@@ -137,18 +176,20 @@ async function getAvailableDates() {
   return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
 }
 
-async function getAvailableSessionIdsFromDate(date) {
+async function getAvailableSessionIdsFromDate(userContext) {
+  const date = userContext.date;
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
   const endOfDay = new Date(date);
   endOfDay.setHours(23, 59, 59, 999);
-
   const snapshot = await firestore
-    .collection("path_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<", endOfDay)
-    .orderBy("sessionId", "asc")
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<', endOfDay)
+    .limit(100)
     .get();
 
   const sessionIds = new Set();
@@ -162,10 +203,12 @@ async function getAvailableSessionIdsFromDate(date) {
   return Array.from(sessionIds).sort((a, b) => a - b);
 }
 
-async function getAvailableDatesWithSessions() {
+async function getAvailableDatesWithSessions(userContext) {
   const snapshot = await firestore
-    .collection("path_logs")
-    .orderBy("timestamp", "asc")
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .limit(100)
     .get();
 
   const dateSessionMap = new Map();
@@ -174,7 +217,7 @@ async function getAvailableDatesWithSessions() {
     const data = doc.data();
     if (!data || !data.timestamp || !data.sessionId) return;
 
-    const date = data.timestamp.toDate().toISOString().split("T")[0];
+    const date = data.timestamp.toDate().toISOString().split('T')[0];
 
     if (!dateSessionMap.has(date)) {
       dateSessionMap.set(date, new Set());
@@ -185,10 +228,10 @@ async function getAvailableDatesWithSessions() {
 
   const result = Array.from(dateSessionMap.entries())
     .map(([date, sessionSet]) => ({
-      label: new Date(date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
+      label: new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
       }),
       value: date,
       sessions: Array.from(sessionSet)
@@ -203,15 +246,27 @@ async function getAvailableDatesWithSessions() {
   return result;
 }
 
-async function deletePathLogByID(id) {
-  const ref = firestore.collection("path_logs").doc(id);
+async function deletePathLogByID(userContext) {
+  const id = userContext.id;
+  const ref = firestore.collection('path_logs').doc(id);
   const doc = await ref.get();
   if (!doc.exists) return null;
+
+  const data = doc.data();
+  // Check ownership before deletion
+  if (
+    data.user_id !== userContext.userId ||
+    data.device_id !== userContext.selectedDevice
+  ) {
+    return null;
+  }
+
   await ref.delete();
   return true;
 }
 
-async function deletePathLogByDate(date) {
+async function deletePathLogByDate(userContext) {
+  const date = userContext.date;
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -219,9 +274,11 @@ async function deletePathLogByDate(date) {
   endOfDay.setHours(23, 59, 59, 999);
 
   const snapshot = await firestore
-    .collection("path_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
     .get();
 
   if (snapshot.empty) return null;
@@ -235,16 +292,18 @@ async function deletePathLogByDate(date) {
   return true;
 }
 
-async function deletePathLogByDateAndSessionId(
-  startOfDay,
-  endOfDay,
-  sessionId
-) {
+async function deletePathLogByDateAndSessionId(userContext) {
+  const startOfDay = userContext.startOfDay;
+  const endOfDay = userContext.endOfDay;
+  const sessionId = userContext.sessionId;
+
   const snapshot = await firestore
-    .collection("path_logs")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
-    .where("sessionId", "==", Number(sessionId))
+    .collection('path_logs')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .where('timestamp', '>=', startOfDay)
+    .where('timestamp', '<=', endOfDay)
+    .where('sessionId', '==', Number(sessionId))
     .get();
 
   if (snapshot.empty) return null;

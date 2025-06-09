@@ -1,24 +1,38 @@
-const { firestore } = require("../database");
+const { firestore } = require('../database');
 
 function calculateAlertLevel(distance) {
-  if (distance < 0.5) return "High";
-  if (distance <= 1.0) return "Medium";
-  return "Safe";
+  if (distance < 0.5) return 'High';
+  if (distance <= 1.0) return 'Medium';
+  return 'Safe';
 }
 
-async function saveUltrasonicLog(
-  { sessionId = null, timestamp, distance, imageId = null },
-  userContext,
-) {
+// Extract user and device context from request
+function extractUserDeviceContext(req) {
+  const userId =
+    req.headers['x-user-id'] ||
+    req.query.user_id ||
+    req.body.user_id ||
+    'default_user';
+  const deviceId =
+    req.headers['x-device-id'] ||
+    req.query.device_id ||
+    req.body.device_id ||
+    'default_device';
+  return { userId, deviceId };
+}
+
+async function saveUltrasonicLog(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { sessionId = null, timestamp, distance, imageId = null } = req.body;
+
   const alertLevel = calculateAlertLevel(distance);
   const ref = firestore.collection('ultrasonic_logs').doc();
 
   const data = {
+    user_id: userId,
+    device_id: deviceId,
     timestamp: timestamp ? new Date(timestamp) : new Date(),
     sessionId: sessionId !== null ? Number(sessionId) : null,
-    user_id: userContext.userId,
-    device_id: userContext.selectedDevice,
-    deviceName: userContext.deviceName,
     distance: parseFloat(distance),
     alertLevel,
     imageId: imageId || null,
@@ -29,12 +43,14 @@ async function saveUltrasonicLog(
   return { id: ref.id, ...data };
 }
 
-async function getAllSummaries(userContext) {
+async function getAllSummaries(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
-    .limit(100)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
+    .orderBy('timestamp', 'asc')
     .get();
 
   let totalImages = 0;
@@ -69,7 +85,10 @@ async function getAllSummaries(userContext) {
   };
 }
 
-async function getSummariesByDate(date, userContext) {
+async function getSummariesByDate(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -78,11 +97,11 @@ async function getSummariesByDate(date, userContext) {
 
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<=', endOfDay)
-    .limit(100)
+    .orderBy('timestamp', 'asc')
     .get();
 
   let totalImages = 0;
@@ -122,7 +141,10 @@ async function getSummariesByDate(date, userContext) {
   };
 }
 
-async function getSummariesByDateAndSessionId(date, sessionId, userContext) {
+async function getSummariesByDateAndSessionId(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date, sessionId } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -131,12 +153,12 @@ async function getSummariesByDateAndSessionId(date, sessionId, userContext) {
 
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<=', endOfDay)
     .where('sessionId', '==', Number(sessionId))
-    .limit(100)
+    .orderBy('timestamp', 'asc')
     .get();
 
   let totalImages = 0;
@@ -147,11 +169,15 @@ async function getSummariesByDateAndSessionId(date, sessionId, userContext) {
 
   snapshot.forEach((doc) => {
     const data = doc.data();
+    if (!data || data.distance == null) return;
+
     totalImages++;
+
+    if (data.alertLevel === 'Medium' || data.alertLevel === 'High') {
+      totalObstacles++;
+    }
+
     if (data && data.distance != null) {
-      if (data.alertLevel === 'Medium' || data.alertLevel === 'High') {
-        totalObstacles++;
-      }
       totalDistance += data.distance;
       countedDistance++;
       if (closestDistance === null || data.distance < closestDistance) {
@@ -171,16 +197,17 @@ async function getSummariesByDateAndSessionId(date, sessionId, userContext) {
   };
 }
 
-async function getAllUltrasonicLogs(userContext) {
+async function getAllUltrasonicLogs(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
-    .limit(100)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
+    .orderBy('timestamp', 'asc')
     .get();
 
-  // Sort by timestamp in memory to avoid composite index requirement
-  const logs = snapshot.docs.map((doc) => {
+  return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -189,23 +216,22 @@ async function getAllUltrasonicLogs(userContext) {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
-
-  // Sort by timestamp in ascending order
-  return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-async function getUltrasonicLogById(id, userContext) {
+async function getUltrasonicLogById(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { id } = req.params;
+
   const ref = await firestore.collection('ultrasonic_logs').doc(id);
   const doc = await ref.get();
+
   if (!doc.exists) return null;
 
   const data = doc.data();
+
   // Verify ownership
-  if (
-    data.user_id !== userContext.userId ||
-    data.device_id !== userContext.selectedDevice
-  ) {
-    return null; // Not accessible to this user/device
+  if (data.user_id !== userId || data.device_id !== deviceId) {
+    return null;
   }
 
   return {
@@ -216,7 +242,10 @@ async function getUltrasonicLogById(id, userContext) {
   };
 }
 
-async function getUltrasonicLogsByDate(date, userContext) {
+async function getUltrasonicLogsByDate(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -225,15 +254,14 @@ async function getUltrasonicLogsByDate(date, userContext) {
 
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<=', endOfDay)
-    .limit(100)
+    .orderBy('timestamp', 'asc')
     .get();
 
-  // Sort by timestamp in memory to avoid composite index requirement
-  const logs = snapshot.docs.map((doc) => {
+  return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -242,29 +270,29 @@ async function getUltrasonicLogsByDate(date, userContext) {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
-
-  // Sort by timestamp in ascending order
-  return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-async function getUltrasonicLogsByDateAndSessionId(
-  startOfDay,
-  endOfDay,
-  sessionId,
-  userContext,
-) {
+async function getUltrasonicLogsByDateAndSessionId(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date, sessionId } = req.params;
+
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<=', endOfDay)
     .where('sessionId', '==', Number(sessionId))
-    .limit(100)
+    .orderBy('timestamp', 'asc')
     .get();
 
-  // Sort by timestamp in memory to avoid composite index requirement
-  const logs = snapshot.docs.map((doc) => {
+  return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -273,17 +301,16 @@ async function getUltrasonicLogsByDateAndSessionId(
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     };
   });
-
-  // Sort by timestamp in ascending order
-  return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-async function getAvailableDates(userContext) {
+async function getAvailableDates(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
-    .limit(100)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
+    .orderBy('timestamp', 'asc')
     .get();
 
   const dates = new Set();
@@ -305,7 +332,10 @@ async function getAvailableDates(userContext) {
   return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
 }
 
-async function getAvailableSessionIdsFromDate(date, userContext) {
+async function getAvailableSessionIdsFromDate(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -314,11 +344,11 @@ async function getAvailableSessionIdsFromDate(date, userContext) {
 
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<=', endOfDay)
-    .limit(100)
+    .orderBy('sessionId')
     .get();
 
   const sessionIds = new Set();
@@ -332,12 +362,14 @@ async function getAvailableSessionIdsFromDate(date, userContext) {
   return Array.from(sessionIds).sort((a, b) => a - b);
 }
 
-async function getAvailableDatesWithSessions(userContext) {
+async function getAvailableDatesWithSessions(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
-    .limit(100)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
+    .orderBy('timestamp', 'asc')
     .get();
 
   const dateSessionMap = new Map();
@@ -382,25 +414,30 @@ async function getAvailableDatesWithSessions(userContext) {
   return result;
 }
 
-async function deleteUltrasonicLogByID(id, userContext) {
+async function deleteUltrasonicLogByID(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { id } = req.params;
+
   const ref = firestore.collection('ultrasonic_logs').doc(id);
   const doc = await ref.get();
+
   if (!doc.exists) return false;
 
   const data = doc.data();
-  // Verify ownership before deletion
-  if (
-    data.user_id !== userContext.userId ||
-    data.device_id !== userContext.selectedDevice
-  ) {
-    return false; // Not accessible to this user/device
+
+  // Verify ownership
+  if (data.user_id !== userId || data.device_id !== deviceId) {
+    return false;
   }
 
   await ref.delete();
   return true;
 }
 
-async function deleteUltrasonicLogByDate(date, userContext) {
+async function deleteUltrasonicLogByDate(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date } = req.params;
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -409,13 +446,13 @@ async function deleteUltrasonicLogByDate(date, userContext) {
 
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<=', endOfDay)
     .get();
 
-  if (snapshot.empty) return null;
+  if (snapshot.empty) return 0;
 
   const batch = firestore.batch();
   snapshot.docs.forEach((doc) => {
@@ -423,25 +460,29 @@ async function deleteUltrasonicLogByDate(date, userContext) {
   });
   await batch.commit();
 
-  return true;
+  return snapshot.docs.length;
 }
 
-async function deleteUltrasonicLogByDateAndSessionId(
-  startOfDay,
-  endOfDay,
-  sessionId,
-  userContext,
-) {
+async function deleteUltrasonicLogByDateAndSessionId(req) {
+  const { userId, deviceId } = extractUserDeviceContext(req);
+  const { date, sessionId } = req.params;
+
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
   const snapshot = await firestore
     .collection('ultrasonic_logs')
-    .where('user_id', '==', userContext.userId)
-    .where('device_id', '==', userContext.selectedDevice)
+    .where('user_id', '==', userId)
+    .where('device_id', '==', deviceId)
     .where('timestamp', '>=', startOfDay)
     .where('timestamp', '<=', endOfDay)
     .where('sessionId', '==', Number(sessionId))
     .get();
 
-  if (snapshot.empty) return null;
+  if (snapshot.empty) return 0;
 
   const batch = firestore.batch();
   snapshot.docs.forEach((doc) => {
@@ -449,7 +490,7 @@ async function deleteUltrasonicLogByDateAndSessionId(
   });
   await batch.commit();
 
-  return true;
+  return snapshot.docs.length;
 }
 
 module.exports = {
@@ -459,8 +500,8 @@ module.exports = {
   getSummariesByDateAndSessionId,
   getAllUltrasonicLogs,
   getUltrasonicLogsByDate,
-  getUltrasonicLogById,
   getUltrasonicLogsByDateAndSessionId,
+  getUltrasonicLogById,
   getAvailableDates,
   getAvailableSessionIdsFromDate,
   getAvailableDatesWithSessions,

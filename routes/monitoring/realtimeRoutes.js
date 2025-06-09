@@ -2,23 +2,31 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const upload = multer();
+const deviceNameMiddleware = require('../../middleware/userDeviceMiddleware');
+const secureDeviceMiddleware = require('../../middleware/secureDeviceMiddleware');
+
+// Apply device name middleware to data collection routes (ESP32)
+// Apply secure device middleware to control routes (Web Dashboard)
+// Default: use device name middleware for backward compatibility
+router.use(deviceNameMiddleware);
 
 const {
-  restructureRealtimeData,
   saveRealtime,
   getAllRealtime,
   getAllRealtimeWithImage,
-  getAllRealtimeIncludingMetadata,
   getRealtimeById,
   getAllRealtimeByDate,
   deleteRealtimeByID,
   uploadImageToStorage,
   getLastDataRealtime,
+} = require('../../controllers/monitoring/realtimeController');
+
+const {
   startMonitoring,
   stopMonitoring,
-} = require("../../controllers/monitoring/rtdb/newRealtimeController");
+} = require('../../controllers/monitoring/rtdb/userScopedRealtimeController');
 
-router.post("/", upload.single("image"), async (req, res) => {
+router.post('/', upload.single('image'), async (req, res) => {
   try {
     const file = req.file;
     const obstacle = req.body.obstacle === 'true';
@@ -99,18 +107,20 @@ router.post("/", upload.single("image"), async (req, res) => {
       path = uploadResult.path;
       imageUrl = uploadResult.imageUrl;
     }
-
-    const saved = await saveRealtime({
-      filename,
-      path,
-      imageUrl,
-      timestamp: new Date(),
-      obstacle,
-      takenWith,
-      rssi,
-      sessionStatus,
-      ...(metadata ? { metadata } : {}),
-    });
+    const saved = await saveRealtime(
+      {
+        filename,
+        path,
+        imageUrl,
+        timestamp: new Date(),
+        obstacle,
+        takenWith,
+        rssi,
+        sessionStatus,
+        ...(metadata ? { metadata } : {}),
+      },
+      req.user,
+    );
 
     let message = 'Metadata saved successfully';
     if (file && metadata) message = 'Image and metadata saved successfully';
@@ -123,194 +133,157 @@ router.post("/", upload.single("image"), async (req, res) => {
       data: saved,
     });
   } catch (err) {
-    console.error("Upload error:", err);
+    console.error('Upload error:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Upload failed",
+      message: 'Upload failed',
     });
   }
 });
 
-router.get("/", async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const result = await getAllRealtime();
+    const result = await getAllRealtime(req.user);
 
     if (result.count === 0) {
       return res.status(404).json({
-        status: "error",
+        status: 'error',
         code: 404,
-        message: "No realtime data found",
+        message: 'No realtime data found',
       });
     }
 
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Data retrieved successfully",
+      message: 'Data retrieved successfully',
       total: result.count,
       data: result.data,
     });
   } catch (err) {
-    console.error("Error retrieving data:", err);
+    console.error('Error retrieving data:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve data",
+      message: 'Failed to retrieve data',
       error: err.message,
     });
   }
 });
 
-router.get("/last", async (req, res) => {
+router.get('/last', async (req, res) => {
   try {
-    const data = await getLastDataRealtime();
+    const data = await getLastDataRealtime(req.user);
 
     if (!data) {
-      return res.status(404).json({ message: "No data found" });
+      return res.status(404).json({ message: 'No data found' });
     }
 
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Last data retrieved successfully",
+      message: 'Last data retrieved successfully',
       data: data,
     });
   } catch (err) {
-    console.error("Error retrieving last data:", err);
+    console.error('Error retrieving last data:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve last data",
+      message: 'Failed to retrieve last data',
       error: err.message,
     });
   }
 });
 
-router.get("/images", async (req, res) => {
+router.get('/images', async (req, res) => {
   try {
-    const data = await getAllRealtimeWithImage();
+    const data = await getAllRealtimeWithImage(req.user);
 
     if (data.length === 0) {
-      return res.status(404).json({ message: "No images found" });
+      return res.status(404).json({ message: 'No images found' });
     }
 
     res.status(200).json({
-      status: "success",
+      status: 'success',
       code: 200,
-      message: "Images retrieved successfully",
+      message: 'Images retrieved successfully',
       data: data,
     });
   } catch (err) {
-    console.error("Error retrieving images:", err);
+    console.error('Error retrieving images:', err);
     res.status(500).json({
-      status: "error",
+      status: 'error',
       code: 500,
-      message: "Failed to retrieve images",
+      message: 'Failed to retrieve images',
       error: err.message,
     });
   }
 });
 
-router.get("/metadatas", async (req, res) => {
+router.get('/date/:date', async (req, res) => {
   try {
-    const data = await getAllRealtimeIncludingMetadata();
-
-    if (data.length === 0) {
-      return res.status(404).json({ message: "No metadata found" });
-    }
-
-    res.status(200).json({
-      status: "success",
-      code: 200,
-      message: "Metadata retrieved successfully",
-      data: data,
-    });
-  } catch (err) {
-    console.error("Error retrieving metadata:", err);
-    res.status(500).json({
-      status: "error",
-      code: 500,
-      message: "Failed to retrieve metadata",
-      error: err.message,
-    });
-  }
-});
-
-router.get("/restructure", async (req, res) => {
-  try {
-    const data = await restructureRealtimeData();
-
-    if (data.length === 0) {
-      return res.status(404).json({ message: "No data found" });
-    }
-
-    res.status(200).json({
-      status: "success",
-      code: 200,
-      message: "Data restructured successfully",
-      data: data,
-    });
-  } catch (err) {
-    console.error("Error restructuring data:", err);
-    res.status(500).json({
-      status: "error",
-      code: 500,
-      message: "Failed to restructure data",
-      error: err.message,
-    });
-  }
-});
-
-router.get("/date/:date", async (req, res) => {
-  try {
-    const data = await getAllRealtimeByDate(req.params.date);
+    const data = await getAllRealtimeByDate(req.params.date, req.user);
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get("/start-monitoring", async (req, res) => {
+// SECURE MONITORING CONTROL ENDPOINTS - Require Bearer Token + Device Ownership
+router.get('/start-monitoring', secureDeviceMiddleware, async (req, res) => {
   try {
-    const result = await startMonitoring();
-    res.status(200).json(result);
+    const result = await startMonitoring(req);
+    res.json({
+      success: true,
+      message: 'Monitoring started successfully',
+      data: result,
+    });
   } catch (err) {
-    console.error("Error starting monitoring:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error starting monitoring:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to start monitoring',
+      details: err.message,
+    });
   }
 });
 
-router.get("/stop-monitoring", async (req, res) => {
+// Stop monitoring endpoint - properly authenticated (must be before /:id route)
+router.get('/stop-monitoring', secureDeviceMiddleware, async (req, res) => {
   try {
-    const result = await stopMonitoring();
-    if (!result) {
-      return res
-        .status(404)
-        .json({ message: "No active monitoring session found" });
-    }
-    res.status(200).json(result);
+    const result = await stopMonitoring(req);
+    res.json({
+      success: true,
+      message: 'Monitoring stopped successfully',
+      data: result,
+    });
   } catch (err) {
-    console.error("Stop monitoring error:", err);
-    res.status(500).json({ error: "Failed to stop monitoring" });
+    console.error('Error stopping monitoring:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to stop monitoring',
+      details: err.message,
+    });
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const data = await getRealtimeById(req.params.id);
-    if (!data) return res.status(404).json({ message: "Not found" });
+    const data = await getRealtimeById(req.params.id, req.user);
+    if (!data) return res.status(404).json({ message: 'Not found' });
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const success = await deleteRealtimeByID(req.params.id);
-    if (!success) return res.status(404).json({ message: "Not found" });
-    res.json({ message: "Deleted successfully" });
+    const success = await deleteRealtimeByID(req.params.id, req.user);
+    if (!success) return res.status(404).json({ message: 'Not found' });
+    res.json({ message: 'Deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

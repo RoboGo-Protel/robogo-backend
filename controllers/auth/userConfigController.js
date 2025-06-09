@@ -7,6 +7,7 @@ const DEFAULT_CONFIG = {
   streamQuality: 'medium',
   assignedDevices: [],
   onboardingCompleted: false,
+  hideMonitoringControls: false,
 };
 
 async function getUserConfig(userId) {
