@@ -1,11 +1,13 @@
 const { firestore } = require("../../database");
 const storage = require("../../storage");
 
-async function getAllWithImage() {
+async function getAllWithImage(userContext) {
   const snapshot = await firestore
-    .collection("realtime_monitoring")
-    .where("imageUrl", "!=", "")
-    .orderBy("createdAt", "desc")
+    .collection('realtime_monitoring')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .where('imageUrl', '!=', '')
+    .orderBy('createdAt', 'desc')
     .get();
 
   return snapshot.docs
@@ -21,13 +23,22 @@ async function getAllWithImage() {
     .filter((item) => item.imageUrl);
 }
 
-async function getImageById(id) {
-  const doc = await firestore.collection("realtime_monitoring").doc(id).get();
+async function getImageById(id, userContext) {
+  const doc = await firestore.collection('realtime_monitoring').doc(id).get();
   if (!doc.exists) {
     return null;
   }
 
   const data = doc.data();
+
+  // Verify ownership
+  if (
+    data.user_id !== userContext.userId ||
+    data.device_id !== userContext.selectedDevice
+  ) {
+    return null;
+  }
+
   return {
     id: doc.id,
     ...data,
@@ -36,7 +47,7 @@ async function getImageById(id) {
   };
 }
 
-async function getAllImagesByDate(date) {
+async function getAllImagesByDate(date, userContext) {
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -44,9 +55,11 @@ async function getAllImagesByDate(date) {
   endOfDay.setHours(23, 59, 59, 999);
 
   const snapshot = await firestore
-    .collection("realtime_monitoring")
-    .where("createdAt", ">=", startOfDay)
-    .where("createdAt", "<=", endOfDay)
+    .collection('realtime_monitoring')
+    .where('user_id', '==', userContext.userId)
+    .where('device_id', '==', userContext.selectedDevice)
+    .where('createdAt', '>=', startOfDay)
+    .where('createdAt', '<=', endOfDay)
     .get();
 
   return snapshot.docs.map((doc) => {
@@ -60,8 +73,8 @@ async function getAllImagesByDate(date) {
   });
 }
 
-async function downloadImageByID(id) {
-  const docRef = firestore.collection("realtime_monitoring").doc(id);
+async function downloadImageByID(id, userContext) {
+  const docRef = firestore.collection('realtime_monitoring').doc(id);
   const doc = await docRef.get();
 
   if (!doc.exists) {
@@ -69,7 +82,16 @@ async function downloadImageByID(id) {
   }
 
   const image = doc.data();
-  const filename = decodeURIComponent(image.path?.split("/").pop());
+
+  // Verify ownership
+  if (
+    image.user_id !== userContext.userId ||
+    image.device_id !== userContext.selectedDevice
+  ) {
+    return null;
+  }
+
+  const filename = decodeURIComponent(image.path?.split('/').pop());
 
   if (filename) {
     try {
@@ -77,7 +99,7 @@ async function downloadImageByID(id) {
       const [exists] = await file.exists();
 
       if (!exists) {
-        throw new Error("File does not exist in storage.");
+        throw new Error('File does not exist in storage.');
       }
 
       const [url] = await file.getSignedUrl({
@@ -87,16 +109,16 @@ async function downloadImageByID(id) {
 
       return url;
     } catch (err) {
-      console.error("Error downloading file from storage:", err);
-      throw new Error("Error downloading file from storage");
+      console.error('Error downloading file from storage:', err);
+      throw new Error('Error downloading file from storage');
     }
   }
 
   return null;
 }
 
-async function deleteImageByID(id) {
-  const docRef = firestore.collection("realtime_monitoring").doc(id);
+async function deleteImageByID(id, userContext) {
+  const docRef = firestore.collection('realtime_monitoring').doc(id);
   const doc = await docRef.get();
 
   if (!doc.exists) {
@@ -104,7 +126,16 @@ async function deleteImageByID(id) {
   }
 
   const image = doc.data();
-  const filename = decodeURIComponent(image.path?.split("/").pop());
+
+  // Verify ownership
+  if (
+    image.user_id !== userContext.userId ||
+    image.device_id !== userContext.selectedDevice
+  ) {
+    return null;
+  }
+
+  const filename = decodeURIComponent(image.path?.split('/').pop());
 
   if (filename) {
     try {
@@ -112,14 +143,14 @@ async function deleteImageByID(id) {
       const [exists] = await file.exists();
 
       if (!exists) {
-        throw new Error("File does not exist in storage.");
+        throw new Error('File does not exist in storage.');
       }
 
       await file.delete();
       console.log(`File ${filename} deleted from storage.`);
     } catch (err) {
-      console.error("Error deleting file from storage:", err);
-      throw new Error("Error deleting file from storage");
+      console.error('Error deleting file from storage:', err);
+      throw new Error('Error deleting file from storage');
     }
   }
 

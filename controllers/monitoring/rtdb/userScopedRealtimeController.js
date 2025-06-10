@@ -1,6 +1,7 @@
 const { rtdb, firestore } = require('../../database');
 const storage = require('../../storage');
 const { v4: uuidv4 } = require('uuid');
+const { savePathLog } = require('../../reports/pathController');
 
 function calculateAlertLevel(distance) {
   if (typeof distance === 'number') {
@@ -446,6 +447,11 @@ async function stopMonitoring(req) {
             success: false,
             message: 'No active session to stop.',
           },
+          path_logs: {
+            totalData: 0,
+            success: false,
+            message: 'No active session to stop.',
+          },
         },
       };
     }
@@ -455,13 +461,15 @@ async function stopMonitoring(req) {
       .ref(`users/${userId}/${deviceId}/realtime_monitoring/${sessionId}`)
       .once('value');
     const sessionData = sessionDataSnap.val();
-
     let importedUltrasonic = 0;
     let importedIMU = 0;
+    let importedPath = 0;
     let ultrasonicSuccess = true;
     let ultrasonicMessage = '';
     let imuSuccess = true;
     let imuMessage = '';
+    let pathSuccess = true;
+    let pathMessage = '';
 
     if (sessionData && typeof sessionData === 'object') {
       const batch = firestore.batch();
@@ -511,9 +519,7 @@ async function stopMonitoring(req) {
           if (existingUltrasonic.empty) {
             batch.set(docRefUltrasonic, ultrasonicData);
             importedUltrasonic++;
-          }
-
-          // Create IMU log with user_id and device_id
+          } // Create IMU log with user_id and device_id
           if (entry.sessionId === sessionId && entry.metadata) {
             const docRefIMU = firestore.collection('imu_logs').doc();
             const m = entry.metadata;
@@ -557,10 +563,44 @@ async function stopMonitoring(req) {
               batch.set(docRefIMU, imuData);
               importedIMU++;
             }
+
+            // Create Path log with user_id and device_id
+            if (m.position && (m.velocity || m.heading !== null)) {
+              const docRefPath = firestore.collection('path_logs').doc();
+
+              const pathData = {
+                timestamp: entry.timestamp
+                  ? new Date(entry.timestamp)
+                  : createdAt,
+                sessionId: sessionId,
+                user_id: userId,
+                device_id: deviceId,
+                position: {
+                  x: parseFloat(m.position?.positionX || m.position?.x || 0),
+                  y: parseFloat(m.position?.positionY || m.position?.y || 0),
+                },
+                speed: parseFloat(m.velocity?.velocity || 0),
+                heading: parseFloat(m.heading || 0),
+                status: 'Moving',
+                createdAt,
+              };
+
+              const existingPath = await firestore
+                .collection('path_logs')
+                .where('sessionId', '==', sessionId)
+                .where('timestamp', '==', pathData.timestamp)
+                .where('user_id', '==', userId)
+                .where('device_id', '==', deviceId)
+                .get();
+
+              if (existingPath.empty) {
+                batch.set(docRefPath, pathData);
+                importedPath++;
+              }
+            }
           }
         }
-
-        if (importedUltrasonic > 0 || importedIMU > 0) {
+        if (importedUltrasonic > 0 || importedIMU > 0 || importedPath > 0) {
           await batch.commit();
         }
 
@@ -574,11 +614,18 @@ async function stopMonitoring(req) {
           importedIMU > 0
             ? `Successfully imported ${importedIMU} IMU log(s).`
             : 'No new IMU logs to import.';
+        pathSuccess = true;
+        pathMessage =
+          importedPath > 0
+            ? `Successfully imported ${importedPath} path log(s).`
+            : 'No new path logs to import.';
       } catch (e) {
         ultrasonicSuccess = false;
         ultrasonicMessage = e.message || 'Failed to import ultrasonic_logs.';
         imuSuccess = false;
         imuMessage = e.message || 'Failed to import imu_logs.';
+        pathSuccess = false;
+        pathMessage = e.message || 'Failed to import path_logs.';
       }
     }
 
@@ -622,6 +669,12 @@ async function stopMonitoring(req) {
           success: imuSuccess,
           duplication: importedIMU === 0 ? true : false,
           message: imuMessage,
+        },
+        path_logs: {
+          totalData: importedPath,
+          success: pathSuccess,
+          duplication: importedPath === 0 ? true : false,
+          message: pathMessage,
         },
       },
     };

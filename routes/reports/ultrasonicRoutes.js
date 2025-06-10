@@ -317,7 +317,11 @@ router.get('/summaries/date/:date/session/:sessionId', async (req, res) => {
     });
   }
   try {
-    const summary = await getSummariesByDateAndSessionId(req.user);
+    const summary = await getSummariesByDateAndSessionId(
+      dateStr,
+      sessionId,
+      req.user,
+    );
 
     if (summary.length === 0) {
       return res.status(404).json({
@@ -376,11 +380,15 @@ router.get('/date/:date/session/:sessionId', async (req, res) => {
         'Invalid date. Please provide a valid date (e.g., no 31st February).',
     });
   }
-
   const startOfDay = new Date(validDate.setHours(0, 0, 0, 0));
   const endOfDay = new Date(validDate.setHours(23, 59, 59, 999));
   try {
-    const logs = await getUltrasonicLogsByDateAndSessionId(req.user);
+    const logs = await getUltrasonicLogsByDateAndSessionId(
+      startOfDay,
+      endOfDay,
+      sessionId,
+      req.user,
+    );
     if (!logs || logs.length === 0) {
       return res.status(404).json({
         status: 'error',
