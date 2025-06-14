@@ -1,10 +1,12 @@
 require('dotenv').config();
 
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
+const WebSocket = require('ws');
 
 const {
   startRecording,
@@ -25,6 +27,7 @@ const deviceRoutes = require('./routes/devices/deviceRoutes');
 const userRoutes = require('./routes/others/userRoutes');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = 4000;
 
 app.use(
@@ -95,6 +98,42 @@ v1.use('/others/user', userRoutes);
 
 app.use('/api/v1', v1);
 
-app.listen(PORT, () => {
+// WebSocket Server untuk ESP32-CAM
+const wss = new WebSocket.Server({ server, path: '/esp' });
+
+wss.on('connection', function connection(ws, req) {
+  console.log('📡 ESP32-CAM connected from:', req.socket.remoteAddress);
+
+  ws.on('message', function incoming(data) {
+    console.log(`📷 Frame received - size: ${data.length} bytes`);
+
+    // Broadcast frame to all connected clients (dashboard, monitoring, etc.)
+    wss.clients.forEach(function each(client) {
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+        client.send(data);
+      }
+    });
+  });
+
+  ws.on('close', () => {
+    console.log('❌ ESP32-CAM disconnected');
+  });
+
+  ws.on('error', (error) => {
+    console.error('❌ WebSocket error:', error);
+  });
+
+  // Send ping to keep connection alive
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+    } else {
+      clearInterval(pingInterval);
+    }
+  }, 30000); // ping every 30 seconds
+});
+
+server.listen(PORT, () => {
   console.log(`🎯 REST API ready at http://localhost:${PORT}/api/v1`);
+  console.log(`📡 WebSocket Server ready at ws://localhost:${PORT}/esp`);
 });
