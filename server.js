@@ -88,12 +88,25 @@ v1.get('/status', (req, res) => {
 // ESP32-CAM Control Endpoints
 v1.post('/esp32/command', (req, res) => {
   const { command } = req.body;
-  
+
   if (!command) {
     return res.status(400).json({ error: 'Command is required' });
   }
 
-  const validCommands = ['flash_dim', 'flash_bright', 'start', 'stop', 'stats'];
+  const validCommands = [
+    'flash_dim',
+    'flash_bright',
+    'flash_low',
+    'flash_medium',
+    'flash_on',
+    'flash_off',
+    'start',
+    'stop',
+    'stats',
+    'fast',
+    'normal',
+    'slow',
+  ];
   if (!validCommands.includes(command)) {
     return res.status(400).json({ error: 'Invalid command', validCommands });
   }
@@ -137,6 +150,50 @@ v1.post('/esp32/flash/bright', (req, res) => {
   res.json({ success: commandSent, command: 'flash_bright' });
 });
 
+v1.post('/esp32/flash/medium', (req, res) => {
+  let commandSent = false;
+  esp32Connections.forEach(function each(esp32Client) {
+    if (esp32Client.readyState === WebSocket.OPEN) {
+      esp32Client.send('flash_medium');
+      commandSent = true;
+    }
+  });
+  res.json({ success: commandSent, command: 'flash_medium' });
+});
+
+v1.post('/esp32/flash/low', (req, res) => {
+  let commandSent = false;
+  esp32Connections.forEach(function each(esp32Client) {
+    if (esp32Client.readyState === WebSocket.OPEN) {
+      esp32Client.send('flash_low');
+      commandSent = true;
+    }
+  });
+  res.json({ success: commandSent, command: 'flash_low' });
+});
+
+v1.post('/esp32/flash/on', (req, res) => {
+  let commandSent = false;
+  esp32Connections.forEach(function each(esp32Client) {
+    if (esp32Client.readyState === WebSocket.OPEN) {
+      esp32Client.send('flash_on');
+      commandSent = true;
+    }
+  });
+  res.json({ success: commandSent, command: 'flash_on' });
+});
+
+v1.post('/esp32/flash/off', (req, res) => {
+  let commandSent = false;
+  esp32Connections.forEach(function each(esp32Client) {
+    if (esp32Client.readyState === WebSocket.OPEN) {
+      esp32Client.send('flash_off');
+      commandSent = true;
+    }
+  });
+  res.json({ success: commandSent, command: 'flash_off' });
+});
+
 v1.post('/esp32/stream/start', (req, res) => {
   let commandSent = false;
   esp32Connections.forEach(function each(esp32Client) {
@@ -159,6 +216,39 @@ v1.post('/esp32/stream/stop', (req, res) => {
   res.json({ success: commandSent, command: 'stop' });
 });
 
+v1.post('/esp32/fps/fast', (req, res) => {
+  let commandSent = false;
+  esp32Connections.forEach(function each(esp32Client) {
+    if (esp32Client.readyState === WebSocket.OPEN) {
+      esp32Client.send('fast');
+      commandSent = true;
+    }
+  });
+  res.json({ success: commandSent, command: 'fast', fps: '~20 FPS' });
+});
+
+v1.post('/esp32/fps/normal', (req, res) => {
+  let commandSent = false;
+  esp32Connections.forEach(function each(esp32Client) {
+    if (esp32Client.readyState === WebSocket.OPEN) {
+      esp32Client.send('normal');
+      commandSent = true;
+    }
+  });
+  res.json({ success: commandSent, command: 'normal', fps: '~10 FPS' });
+});
+
+v1.post('/esp32/fps/slow', (req, res) => {
+  let commandSent = false;
+  esp32Connections.forEach(function each(esp32Client) {
+    if (esp32Client.readyState === WebSocket.OPEN) {
+      esp32Client.send('slow');
+      commandSent = true;
+    }
+  });
+  res.json({ success: commandSent, command: 'slow', fps: '~5 FPS' });
+});
+
 v1.get('/esp32/stats', (req, res) => {
   let commandSent = false;
   esp32Connections.forEach(function each(esp32Client) {
@@ -167,11 +257,11 @@ v1.get('/esp32/stats', (req, res) => {
       commandSent = true;
     }
   });
-  res.json({ 
-    success: commandSent, 
+  res.json({
+    success: commandSent,
     command: 'stats',
     connectedDevices: esp32Connections.size,
-    connectedClients: dashboardConnections.size
+    connectedClients: dashboardConnections.size,
   });
 });
 
@@ -180,7 +270,69 @@ v1.get('/esp32/status', (req, res) => {
     esp32Connected: esp32Connections.size > 0,
     esp32Count: esp32Connections.size,
     dashboardCount: dashboardConnections.size,
-    totalConnections: esp32Connections.size + dashboardConnections.size
+    totalConnections: esp32Connections.size + dashboardConnections.size,
+    legacyMode: enableLegacyMode,
+    allConnections: wss.clients.size,
+  });
+});
+
+// Debug and control endpoints
+v1.post('/esp32/legacy-mode', (req, res) => {
+  const { enabled } = req.body;
+  enableLegacyMode = enabled !== false; // default to true
+  res.json({ legacyMode: enableLegacyMode, message: 'Legacy mode updated' });
+});
+
+v1.get('/esp32/debug', (req, res) => {
+  const connections = [];
+  wss.clients.forEach((client, index) => {
+    connections.push({
+      id: index,
+      deviceType: client.deviceType || 'unknown',
+      readyState: client.readyState === WebSocket.OPEN ? 'OPEN' : 'CLOSED',
+      isAlive: client.readyState === WebSocket.OPEN,
+    });
+  });
+
+  res.json({
+    legacyMode: enableLegacyMode,
+    totalClients: wss.clients.size,
+    esp32Connections: esp32Connections.size,
+    dashboardConnections: dashboardConnections.size,
+    connections,
+    broadcastMode: enableLegacyMode ? 'ALL_CLIENTS' : 'DEVICE_SPECIFIC',
+    status: esp32Connections.size > 0 ? 'ESP32_CONNECTED' : 'NO_ESP32',
+  });
+});
+
+// Simple endpoint to test WebSocket broadcasting
+v1.get('/esp32/test-broadcast', (req, res) => {
+  const testMessage = `🧪 Test broadcast at ${new Date().toISOString()}`;
+  let sent = 0;
+
+  if (enableLegacyMode) {
+    // Broadcast to all clients
+    wss.clients.forEach(function each(client) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(testMessage);
+        sent++;
+      }
+    });
+  } else {
+    // Send only to dashboard clients
+    dashboardConnections.forEach(function each(client) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(testMessage);
+        sent++;
+      }
+    });
+  }
+
+  res.json({
+    message: 'Test broadcast sent',
+    clientsReached: sent,
+    testMessage,
+    legacyMode: enableLegacyMode,
   });
 });
 
@@ -204,49 +356,114 @@ const wss = new WebSocket.Server({ server, path: '/esp' });
 const esp32Connections = new Set();
 const dashboardConnections = new Set();
 
+// Backward compatibility: broadcast to all clients if device detection fails
+let enableLegacyMode = true; // Set to false to use strict device separation
+
 wss.on('connection', function connection(ws, req) {
   console.log('📡 New WebSocket connection from:', req.socket.remoteAddress);
-  
-  // Check if this is ESP32-CAM or dashboard client based on User-Agent or custom header
+  console.log('📋 Headers:', {
+    'user-agent': req.headers['user-agent'],
+    origin: req.headers['origin'],
+  });
+
+  // Simplified ESP32 detection - assume ESP32 if no typical browser headers
   const userAgent = req.headers['user-agent'] || '';
-  const isESP32 = userAgent.includes('ESP32') || req.headers['x-device-type'] === 'esp32';
-  
-  if (isESP32) {
+  const origin = req.headers['origin'] || '';
+
+  // More conservative detection - prioritize backward compatibility
+  const isBrowser =
+    userAgent.includes('Mozilla') ||
+    userAgent.includes('Chrome') ||
+    userAgent.includes('Safari') ||
+    userAgent.includes('Firefox') ||
+    userAgent.includes('Edge') ||
+    origin; // Browsers usually send Origin header
+
+  if (!isBrowser) {
+    // Likely ESP32-CAM or other device
     esp32Connections.add(ws);
-    console.log('📡 ESP32-CAM connected');
+    console.log('📡 ESP32-CAM connected (auto-detected)');
     ws.deviceType = 'esp32';
   } else {
+    // Likely dashboard/browser client
     dashboardConnections.add(ws);
     console.log('📱 Dashboard client connected');
     ws.deviceType = 'dashboard';
   }
-
   ws.on('message', function incoming(data) {
-    if (ws.deviceType === 'esp32') {
-      // Frame data from ESP32-CAM
+    // Detect data type
+    const isBinaryData = data instanceof Buffer && data.length > 1000;
+
+    if (isBinaryData) {
+      // This is video frame data from ESP32-CAM
+      if (ws.deviceType === 'dashboard') {
+        // Auto-correct device type if we detected wrong initially
+        dashboardConnections.delete(ws);
+        esp32Connections.add(ws);
+        ws.deviceType = 'esp32';
+        console.log(
+          '📡 Device type corrected to ESP32-CAM based on binary data',
+        );
+      }
+
       console.log(`📷 Frame received - size: ${data.length} bytes`);
-      
-      // Broadcast frame to dashboard clients only
-      dashboardConnections.forEach(function each(client) {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(data);
-        }
-      });
+
+      // In legacy mode, broadcast to ALL other clients (backward compatibility)
+      if (enableLegacyMode) {
+        wss.clients.forEach(function each(client) {
+          if (client !== ws && client.readyState === WebSocket.OPEN) {
+            client.send(data);
+          }
+        });
+      } else {
+        // Strict mode: only send to dashboard clients
+        dashboardConnections.forEach(function each(client) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+          }
+        });
+      }
     } else {
-      // Commands from dashboard clients
-      try {
-        const message = data.toString();
-        console.log(`📱 Command received from dashboard: ${message}`);
-        
-        // Forward commands to ESP32-CAM
+      // Text command or response
+      const message = data.toString();
+
+      if (ws.deviceType === 'esp32') {
+        // Response from ESP32-CAM (like stats)
+        console.log(`📡 ESP32-CAM response: ${message}`);
+
+        // Forward to dashboard clients
+        if (enableLegacyMode) {
+          // Legacy: send to all other clients
+          wss.clients.forEach(function each(client) {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(message);
+            }
+          });
+        } else {
+          // Strict: only to dashboard clients
+          dashboardConnections.forEach(function each(client) {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(
+                JSON.stringify({
+                  type: 'esp32_response',
+                  data: message,
+                  timestamp: Date.now(),
+                }),
+              );
+            }
+          });
+        }
+      } else {
+        // Command from dashboard client
+        console.log(`📱 Command from dashboard: ${message}`);
+
+        // Forward to ESP32-CAM devices
         esp32Connections.forEach(function each(esp32Client) {
           if (esp32Client.readyState === WebSocket.OPEN) {
             esp32Client.send(message);
             console.log(`📡 Command sent to ESP32-CAM: ${message}`);
           }
         });
-      } catch (error) {
-        console.error('❌ Error processing dashboard message:', error);
       }
     }
   });
@@ -288,12 +505,41 @@ wss.on('connection', function connection(ws, req) {
 server.listen(PORT, () => {
   console.log(`🎯 REST API ready at http://localhost:${PORT}/api/v1`);
   console.log(`📡 WebSocket Server ready at ws://localhost:${PORT}/esp`);
+  console.log(
+    `🔐 ESP32-CAM should connect to: ws://api.robogo.website:${PORT}/esp`,
+  );
+  console.log(`🔐 With Cloudflare: wss://api.robogo.website/esp (auto SSL)`);
+  console.log(
+    `🔄 Legacy mode: ${
+      enableLegacyMode
+        ? 'ENABLED (broadcast to all)'
+        : 'DISABLED (device-specific)'
+    }`,
+  );
   console.log(`🎮 ESP32-CAM Control endpoints:`);
-  console.log(`   POST /api/v1/esp32/command - Send custom command`);
-  console.log(`   POST /api/v1/esp32/flash/dim - Set flash to dim`);
-  console.log(`   POST /api/v1/esp32/flash/bright - Set flash to bright`);
-  console.log(`   POST /api/v1/esp32/stream/start - Start streaming`);
-  console.log(`   POST /api/v1/esp32/stream/stop - Stop streaming`);
-  console.log(`   GET  /api/v1/esp32/stats - Get ESP32 stats`);
-  console.log(`   GET  /api/v1/esp32/status - Get connection status`);
+  console.log(`   📡 General:`);
+  console.log(`     POST /api/v1/esp32/command - Send custom command`);
+  console.log(`     GET  /api/v1/esp32/stats - Get ESP32 stats`);
+  console.log(`     GET  /api/v1/esp32/status - Get connection status`);
+  console.log(`   💡 Flash Control:`);
+  console.log(`     POST /api/v1/esp32/flash/bright - Max brightness (255)`);
+  console.log(`     POST /api/v1/esp32/flash/medium - Medium (128)`);
+  console.log(`     POST /api/v1/esp32/flash/low - Low (64)`);
+  console.log(`     POST /api/v1/esp32/flash/dim - Dim (0)`);
+  console.log(`     POST /api/v1/esp32/flash/on - Enable flash`);
+  console.log(`     POST /api/v1/esp32/flash/off - Disable flash`);
+  console.log(`   📹 Stream Control:`);
+  console.log(`     POST /api/v1/esp32/stream/start - Start streaming`);
+  console.log(`     POST /api/v1/esp32/stream/stop - Stop streaming`);
+  console.log(`   🚀 FPS Control:`);
+  console.log(`     POST /api/v1/esp32/fps/fast - ~20 FPS`);
+  console.log(`     POST /api/v1/esp32/fps/normal - ~10 FPS`);
+  console.log(`     POST /api/v1/esp32/fps/slow - ~5 FPS`);
+  console.log(`   🔧 Debug & Testing:`);
+  console.log(`     GET  /api/v1/esp32/debug - Debug connection info`);
+  console.log(
+    `     GET  /api/v1/esp32/test-broadcast - Test WebSocket broadcast`,
+  );
+  console.log(`     POST /api/v1/esp32/legacy-mode - Toggle legacy mode`);
+  console.log(`\n🚀 Ready to receive ESP32-CAM connections!`);
 });
